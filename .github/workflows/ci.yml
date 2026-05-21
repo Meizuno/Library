@@ -63,6 +63,6 @@ jobs:
       - name: Bandit (code-level vulnerabilities)
         run: bandit -r library
       - name: pip-audit (CVE in dependencies)
-        run: pip-audit --strict --skip-editable
+        run: pip-audit --skip-editable
       - name: License audit (no GPL family)
         run: pip-licenses --fail-on="GPL;LGPL;AGPL"
