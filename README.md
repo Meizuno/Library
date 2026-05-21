@@ -19,6 +19,7 @@ can evolve independently.
 - [Tech stack](#tech-stack)
 - [Getting started](#getting-started)
 - [HTTP API](#http-api)
+- [CLI](#cli)
 - [Docker](#docker)
 - [Architectural decisions worth highlighting](#architectural-decisions-worth-highlighting)
 - [What this project deliberately does not do](#what-this-project-deliberately-does-not-do)
@@ -314,6 +315,68 @@ ValueError         → 422   # invalid VO / domain invariant
 
 Routers ([`api/routers/`](library/api/routers/)) never `try/except` —
 they let exceptions bubble up to the handlers.
+
+---
+
+## CLI
+
+The same use cases are exposed through a second driving adapter — a Typer-based
+command-line interface in [`library/cli/`](library/cli/). It is **parallel** to
+the FastAPI adapter, not built on top of it; both talk directly to the
+application layer.
+
+Install the CLI extra:
+
+```sh
+pip install -e ".[cli]"
+```
+
+Then:
+
+```sh
+library --help                                              # show all commands
+library books list
+library books add --title "Title" --author "Author" --isbn "978-3-16-148410-0"
+library books read <book-id>
+library books delete <book-id>
+
+library members list
+library members add --name "Name" --email "user@example.com"
+library members read <member-id>
+library members delete <member-id>
+
+library loans borrow --book-id <id> --member-id <id>
+library loans return <loan-id>
+```
+
+### How it mirrors the API without duplicating logic
+
+`library/cli/` adds:
+
+- [`main.py`](library/cli/main.py) — Typer app and subcommand wiring
+- [`container.py`](library/cli/container.py) — `cli_context()` async context
+  manager that opens engine + session + Redis, builds repositories, commits
+  on success, rolls back on exception. This is the CLI's equivalent of
+  FastAPI's per-request `get_session` dependency.
+- [`commands/`](library/cli/commands/) — one file per entity (`book.py`,
+  `member.py`, `loan.py`). Each command is a thin Typer function that
+  resolves the container, builds the relevant use case, calls `execute()`,
+  and prints the result.
+- [`output.py`](library/cli/output.py) — small Rich helpers for tables,
+  success messages, and error formatting on stderr.
+
+Domain, application, infrastructure — **zero changes**. The CLI shares
+exactly the same use cases (`AddBookUseCase`, `BorrowBookUseCase`, …) that
+the HTTP routers consume.
+
+### Architectural takeaway
+
+Adding the CLI was the most direct possible demonstration of the
+**Driving Adapter** concept. The use cases never knew which protocol
+called them. Same `BorrowBookUseCase(books, members, loans, clock)`
+serves both `POST /loans` over HTTP and `library loans borrow --book-id …`
+on the shell. Replace Typer with gRPC, AMQP, a Discord bot — the
+substitution is local to `library/<new-adapter>/`.
 
 ---
 
