@@ -1,8 +1,6 @@
 from uuid import uuid4
 from unittest.mock import AsyncMock
 
-import pytest
-
 from library.domain import (
     Book,
     Member,

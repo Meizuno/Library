@@ -1,10 +1,9 @@
-import pytest
+from datetime import datetime, timedelta
 from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 from fakeredis import FakeAsyncRedis
-
-from datetime import datetime, timedelta
 
 from library.domain import (
     Book,

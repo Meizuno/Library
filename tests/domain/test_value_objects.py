@@ -1,5 +1,6 @@
-import pytest
 from dataclasses import FrozenInstanceError
+
+import pytest
 
 from library.domain import ISBN, Email
 
