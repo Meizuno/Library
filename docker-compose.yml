@@ -1,0 +1,61 @@
+# Local development stack: app + postgres + redis with hot reload.
+# Reuses the production Dockerfile and overrides command/env/volume
+# for an iterative dev loop.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: library
+      POSTGRES_PASSWORD: library
+      POSTGRES_DB: library
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U library -d library"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # PYTHONPATH=/app makes the mounted source win over the
+      # package baked into site-packages — gives us hot reload
+      # without rebuilding the image on every code change.
+      PYTHONPATH: /app
+      DATABASE_URL: postgresql+asyncpg://library:library@postgres:5432/library
+      REDIS_URL: redis://redis:6379/0
+      CACHE_TTL: "300"
+      LOG_LEVEL: DEBUG
+      LOG_FORMAT: console
+    volumes:
+      - ./library:/app/library
+    command: >
+      uvicorn library.api.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --reload-dir /app/library
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

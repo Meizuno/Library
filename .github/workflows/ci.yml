@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  #  TESTS — behavior verification
+  # ─────────────────────────────────────────────────────────────
+  tests:
+    name: Tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Run pytest
+        run: pytest
+
+  # ─────────────────────────────────────────────────────────────
+  #  CODE QUALITY — static analysis & spelling
+  # ─────────────────────────────────────────────────────────────
+  lint:
+    name: Code quality (pylint + codespell)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Pylint
+        run: pylint library tests
+      - name: Codespell
+        run: codespell --skip="*.lock,.git,__pycache__,.venv,*.egg-info"
+
+  # ─────────────────────────────────────────────────────────────
+  #  SECURITY — code + dependencies + licenses
+  # ─────────────────────────────────────────────────────────────
+  security:
+    name: Security (bandit + pip-audit + license audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Bandit (code-level vulnerabilities)
+        run: bandit -r library
+      - name: pip-audit (CVE in dependencies)
+        run: pip-audit --strict
+      - name: License audit (no GPL family)
+        run: pip-licenses --fail-on="GPL;LGPL;AGPL"
