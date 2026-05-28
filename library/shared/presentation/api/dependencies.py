@@ -5,6 +5,8 @@ from fastapi import Depends, Request
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from library.notification.domain import Notifier
+from library.notification.infrastructure import EmailNotifier
 from library.shared.application import Clock, PasswordHasher
 from library.shared.config import Settings
 from library.shared.infrastructure import Argon2PasswordHasher, SystemClock
@@ -44,3 +46,14 @@ def get_clock() -> Clock:
 @lru_cache
 def get_password_hasher() -> PasswordHasher:
     return Argon2PasswordHasher()
+
+
+def get_notifier(settings: Settings = Depends(get_settings)) -> Notifier:
+    return EmailNotifier(
+        smtp_host=settings.smtp_host,
+        smtp_port=settings.smtp_port,
+        sender=settings.smtp_from,
+        username=settings.smtp_username,
+        password=settings.smtp_password,
+        use_tls=settings.smtp_use_tls,
+    )

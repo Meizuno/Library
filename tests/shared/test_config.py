@@ -35,6 +35,16 @@ class TestSettingsHappyPath:
         assert s.jwt_algorithm == "HS256"
         assert s.access_token_ttl_minutes == 15
         assert s.refresh_token_ttl_days == 30
+        # SMTP defaults: no host (dev-mode console logging), no TLS, no auth.
+        assert s.smtp_host is None
+        assert s.smtp_port == 587
+        assert s.smtp_use_tls is False
+        assert s.smtp_username is None
+        assert s.smtp_password is None
+
+    def test_smtp_use_tls_can_be_enabled(self):
+        s = _settings(smtp_use_tls=True)
+        assert s.smtp_use_tls is True
 
     def test_postgres_url_accepted(self):
         _settings(database_url="postgresql+asyncpg://u:p@host:5432/db")

@@ -5,8 +5,8 @@ from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from library.auth.application import InvalidCredentials
 from library.auth.domain import (
-    InvalidCredentials,
     RefreshTokenExpired,
     RefreshTokenInvalid,
     RefreshTokenRevoked,

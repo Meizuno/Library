@@ -12,6 +12,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 from typing import AsyncGenerator
@@ -40,9 +41,11 @@ from library.loan.presentation.api.dependencies import get_loan_repo
 from library.member.domain import Email, Member, MemberRepository
 from library.member.infrastructure import InMemoryMemberRepository
 from library.member.presentation.api.dependencies import get_member_repo
+from library.notification.domain import Notification, Notifier
 from library.shared.application import Clock, PasswordHasher
 from library.shared.presentation.api.dependencies import (
     get_clock,
+    get_notifier,
     get_password_hasher,
 )
 from library.shared.presentation.api.main import app
@@ -66,6 +69,29 @@ class FakePasswordHasher:
 
     def verify(self, password: str, hashed: str) -> bool:
         return hashed == f"hashed:{password}"
+
+
+@dataclass
+class _SentNotification:
+    recipient: str
+    notification: Notification
+
+
+@dataclass
+class FakeNotifier:
+    """Records every `send` call. Tests assert against `.sent` to verify
+    that notifications fire (or don't) without touching SMTP."""
+
+    sent: list[_SentNotification] = field(default_factory=list)
+
+    async def send(
+        self, recipient: str, notification: Notification
+    ) -> None:
+        self.sent.append(
+            _SentNotification(
+                recipient=recipient, notification=notification
+            )
+        )
 
 
 @pytest.fixture
@@ -146,6 +172,11 @@ def loan_repo() -> LoanRepository:
 
 
 @pytest.fixture
+def notifier() -> Notifier:
+    return FakeNotifier()
+
+
+@pytest.fixture
 async def book_repo_with_book(
     book_repo: BookRepository, valid_book: Book
 ) -> BookRepository:
@@ -170,6 +201,7 @@ async def client(
     password_hasher: PasswordHasher,
     token_issuer: TokenIssuer,
     refresh_token_repo: RefreshTokenRepository,
+    notifier: Notifier,
     valid_member: Member,
 ) -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides[get_book_repo] = lambda: book_repo
@@ -181,8 +213,9 @@ async def client(
     app.dependency_overrides[get_refresh_token_repo] = (
         lambda: refresh_token_repo
     )
-    # Default: /loans tests assume an authenticated caller. Individual tests
-    # can clear this override to exercise the 401 path.
+    app.dependency_overrides[get_notifier] = lambda: notifier
+    # Default: auth-gated tests assume an authenticated caller. Individual
+    # tests can clear this override to exercise the 401 path.
     app.dependency_overrides[get_current_member] = lambda: valid_member
     transport = ASGITransport(app=app)
     async with AsyncClient(
@@ -209,6 +242,7 @@ def cli_setup(monkeypatch) -> SimpleNamespace:
     loan_repo = InMemoryLoanRepository()
     clock = FakeClock(datetime(2026, 5, 20, 10, 0, 0))
     hasher = FakePasswordHasher()
+    notifier = FakeNotifier()
 
     @asynccontextmanager
     async def fake_cli_context():
@@ -218,6 +252,7 @@ def cli_setup(monkeypatch) -> SimpleNamespace:
             loans=loan_repo,
             clock=clock,
             hasher=hasher,
+            notifier=notifier,
         )
 
     monkeypatch.setattr(
@@ -236,4 +271,5 @@ def cli_setup(monkeypatch) -> SimpleNamespace:
         loan_repo=loan_repo,
         clock=clock,
         hasher=hasher,
+        notifier=notifier,
     )

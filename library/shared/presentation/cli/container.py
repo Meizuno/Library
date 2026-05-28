@@ -14,6 +14,8 @@ from library.member.infrastructure import (
     CachedMemberRepository,
     SqlMemberRepository,
 )
+from library.notification.domain import Notifier
+from library.notification.infrastructure import EmailNotifier
 from library.shared.application import Clock, PasswordHasher
 from library.shared.config import Settings
 from library.shared.infrastructure import (
@@ -33,6 +35,7 @@ class CliContext:
     loans: LoanRepository
     clock: Clock
     hasher: PasswordHasher
+    notifier: Notifier
 
 
 @asynccontextmanager
@@ -60,6 +63,14 @@ async def cli_context() -> AsyncIterator[CliContext]:
                 loans=SqlLoanRepository(session),
                 clock=SystemClock(),
                 hasher=Argon2PasswordHasher(),
+                notifier=EmailNotifier(
+                    smtp_host=settings.smtp_host,
+                    smtp_port=settings.smtp_port,
+                    sender=settings.smtp_from,
+                    username=settings.smtp_username,
+                    password=settings.smtp_password,
+                    use_tls=settings.smtp_use_tls,
+                ),
             )
             await session.commit()
         except Exception:

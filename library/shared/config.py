@@ -38,6 +38,17 @@ class Settings(BaseSettings):
     access_token_ttl_minutes: int = Field(default=15, gt=0)
     refresh_token_ttl_days: int = Field(default=30, gt=0)
 
+    # Email / SMTP. When `smtp_host` is None (typical dev), the EmailNotifier
+    # logs the email instead of sending — no SMTP server required to run locally.
+    smtp_host: str | None = None
+    smtp_port: int = Field(default=587, gt=0)
+    smtp_from: str = "library@example.com"
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    # STARTTLS is independent of auth: TLS-only relays exist; so do
+    # authenticated-but-plaintext local relays. Caller chooses explicitly.
+    smtp_use_tls: bool = False
+
     model_config = SettingsConfigDict(env_file=".env", extra="forbid")
 
     @field_validator("database_url")
