@@ -63,7 +63,9 @@ def add_member(
 
 async def _add_member(name: str, email: str, password: str) -> None:
     async with cli_context() as ctx:
-        member = await AddMemberUseCase(ctx.members, ctx.hasher).execute(
+        member = await AddMemberUseCase(
+            ctx.members, ctx.hasher, ctx.notifier
+        ).execute(
             AddMemberCommand(name=name, email=email, password=password)
         )
     print_success(f"Added member {member.id}")
