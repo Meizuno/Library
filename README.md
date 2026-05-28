@@ -1,12 +1,12 @@
 # Library — A Clean Architecture Example in Python
 
 A library management system built as a deliberate exercise in **Clean Architecture**,
-**Domain-Driven Design**, and **Hexagonal (Ports & Adapters)** patterns. The library
-domain (books, members, loans) is a vehicle — the real subject is how to organize
-async Python code so that business logic, persistence, transport, and infrastructure
-can evolve independently.
+**Domain-Driven Design**, and **Hexagonal (Ports & Adapters)** patterns, organized
+as a **modular monolith** with feature-based slices. The library domain (books, members,
+loans) is a vehicle — the real subject is how to organize async Python code so that
+business logic, persistence, transport, and infrastructure can evolve independently.
 
-> 239 tests. Every architectural claim below is enforced by a test.
+> 258 tests. Every architectural claim below is enforced by a test.
 
 ---
 
@@ -28,28 +28,39 @@ can evolve independently.
 
 ## The Dependency Rule, made concrete
 
+The codebase is **sliced by bounded context** at the top level (`book/`, `member/`,
+`loan/`), and **layered hexagonally** inside each slice:
+
 ```
-                  ┌────────────────────────────────────────────┐
-                  │  api/  ── HTTP, FastAPI, Pydantic schemas  │
-                  │     ↓                                      │
-                  │  application/  ── use cases, commands,     │
-                  │     ↓             Clock port               │
-                  │  domain/  ── entities, value objects,      │
-                  │               repository protocols,        │
-                  │               domain exceptions            │
-                  │     ↑                                      │
-                  │  infrastructure/  ── SQL, Redis, cache,    │
-                  │                      in-memory adapters    │
-                  └────────────────────────────────────────────┘
+                  ┌─────────────────────────────────────────────────┐
+                  │  presentation/  ── HTTP (FastAPI) + CLI (Typer) │
+                  │     ↓                                           │
+                  │  application/   ── use cases, commands,         │
+                  │     ↓              app-level exceptions         │
+                  │  domain/        ── entities, value objects,     │
+                  │                    repository protocols,        │
+                  │                    domain exceptions            │
+                  │     ↑                                           │
+                  │  infrastructure/── SQL, Redis, cache,           │
+                  │                    in-memory adapters           │
+                  └─────────────────────────────────────────────────┘
+                  applied independently inside book/, member/, loan/
 ```
 
-**Source-code dependencies always point inward.** [`domain/`](library/domain/) imports
-nothing from [`application/`](library/application/),
-[`infrastructure/`](library/infrastructure/), or [`api/`](library/api/).
-[`application/`](library/application/) imports only from
-[`domain/`](library/domain/). [`infrastructure/`](library/infrastructure/)
-implements [`domain/`](library/domain/) protocols.
-[`api/`](library/api/) orchestrates everything from the outside.
+**Source-code dependencies always point inward.** Within any slice,
+[`<feature>/domain/`](library/book/domain/) imports nothing from `application/`,
+`infrastructure/`, or `presentation/`. `application/` imports only from `domain/`.
+`infrastructure/` implements `domain/` protocols. `presentation/` orchestrates everything
+from the outside.
+
+**Cross-slice imports are allowed where they are natural and one-way.** The `loan` slice
+imports `BookRepository`, `MemberRepository`, and a few exceptions from `book/` and
+`member/`, because borrowing a book is a use case that genuinely spans three aggregates.
+`book/` and `member/` do not know about `loan/`.
+
+[`shared/`](library/shared/) holds genuinely cross-cutting infrastructure (`Clock` port,
+cache adapters, shared SQL `MetaData`, config, structlog setup) and the composition root
+(FastAPI app, Typer CLI entry).
 
 This is enforced not by tooling but by discipline + tests. Try violating it and
 contract tests start failing in unintuitive ways.
@@ -60,59 +71,69 @@ contract tests start failing in unintuitive ways.
 
 ```
 library/
-├── domain/                      # Business core — knows nothing else
-│   ├── models.py                # Book, Member, Loan (entities)
-│   ├── value_objects.py         # ISBN, Email (immutable, validated)
-│   ├── repositories.py          # BookRepository, MemberRepository,
-│   │                            #   LoanRepository  ← Protocols (ports)
-│   └── exceptions.py            # BookNotFound, BookNotAvailable, ...
+├── book/                          # Bounded context: books
+│   ├── domain/
+│   │   ├── model.py               # Book (entity)
+│   │   ├── value_objects.py       # ISBN (immutable, validated)
+│   │   ├── repository.py          # BookRepository  ← Protocol (port)
+│   │   └── exceptions.py          # BookNotFound, BookNotAvailable
+│   ├── application/
+│   │   ├── commands.py            # AddBookCommand
+│   │   ├── exceptions.py          # BookAlreadyExists
+│   │   └── use_cases/             # One file per use case (SRP)
+│   │       ├── add_book.py
+│   │       ├── read_book.py
+│   │       ├── list_books.py
+│   │       └── delete_book.py
+│   ├── infrastructure/
+│   │   ├── in_memory_repository.py   # InMemoryBookRepository
+│   │   ├── sql_table.py              # books_table (uses shared MetaData)
+│   │   ├── sql_repository.py         # SqlBookRepository
+│   │   └── cached_repository.py      # CachedBookRepository (Decorator)
+│   └── presentation/
+│       ├── api/
+│       │   ├── schemas.py         # Pydantic DTOs (BookCreate, BookResponse)
+│       │   ├── dependencies.py    # get_book_repo, get_*_use_case
+│       │   └── router.py          # /books endpoints
+│       └── cli/
+│           └── commands.py        # typer `books` subcommands
 │
-├── application/                 # Orchestration — uses domain abstractions
-│   ├── commands.py              # AddBookCommand, BorrowBookCommand, ...
-│   ├── use_cases/               # One file per use case (SRP)
-│   │   ├── add_book.py
-│   │   ├── borrow_book.py
-│   │   ├── return_book.py
-│   │   └── ...
-│   ├── clock.py                 # Clock Protocol (port)
-│   └── exceptions.py            # ApplicationError, BookAlreadyExists, ...
+├── member/                        # Same shape: Member, Email, MemberRepository, …
+├── loan/                          # Same shape: Loan, LoanRepository,
+│                                  # BorrowBookUseCase, ReturnBookUseCase
+│                                  # (no cached repo, no value objects of its own)
 │
-├── infrastructure/              # Adapters — concrete tech, swappable
-│   ├── in_memory_repositories.py    # InMemoryBook/Member/LoanRepository
-│   ├── clock.py                     # SystemClock (real wall clock)
-│   ├── sql/
-│   │   ├── tables.py                # SQLAlchemy Core table definitions
-│   │   ├── book_repository.py       # SqlBookRepository
-│   │   ├── member_repository.py
-│   │   └── loan_repository.py
-│   └── cached/
-│       ├── protocol.py              # Cache Protocol (internal port)
-│       ├── redis_cache.py           # RedisCache with graceful degradation
-│       ├── in_memory.py             # InMemoryCache with LRU eviction
-│       ├── book_repository.py       # CachedBookRepository (Decorator)
-│       └── member_repository.py
-│
-├── api/                         # Driving adapter — HTTP
-│   ├── main.py                  # FastAPI app + lifespan + exception handlers
-│   ├── dependencies.py          # DI providers: get_book_repo, get_clock, ...
-│   ├── middleware.py            # request_logging_middleware (structlog)
-│   ├── routers/                 # One file per entity
-│   │   ├── book.py
-│   │   ├── member.py
-│   │   └── loan.py
-│   └── schemas/                 # Pydantic DTOs (NOT domain models)
-│       ├── book.py
-│       ├── member.py
-│       └── loan.py
-│
-├── config.py                    # Pydantic Settings (fail-fast on missing env)
-└── logging_config.py            # structlog + stdlib bridge
+└── shared/                        # Cross-cutting code
+    ├── config.py                  # Pydantic Settings (fail-fast on missing env)
+    ├── logging_config.py          # structlog + stdlib bridge
+    ├── domain/
+    │   └── exceptions.py          # DomainError (base)
+    ├── application/
+    │   ├── clock.py               # Clock Protocol (port)
+    │   └── exceptions.py          # ApplicationError (base)
+    ├── infrastructure/
+    │   ├── clock.py               # SystemClock (real wall clock)
+    │   ├── sql_metadata.py        # shared MetaData() instance
+    │   └── cache/
+    │       ├── protocol.py        # Cache Protocol (internal port)
+    │       ├── redis.py           # RedisCache with graceful degradation
+    │       └── in_memory.py       # InMemoryCache with LRU eviction
+    └── presentation/              # Composition root
+        ├── api/
+        │   ├── main.py            # FastAPI app, lifespan, exception handlers
+        │   ├── dependencies.py    # get_settings, get_session, get_redis, get_cache, get_clock
+        │   └── middleware.py      # request_logging_middleware (structlog)
+        └── cli/
+            ├── main.py            # Typer app, mounts each feature's commands
+            ├── container.py       # cli_context() — engine + session + repos
+            └── output.py          # Rich helpers (tables, success/error)
 
-tests/
-├── domain/                      # Entity invariants, value object validation
-├── infrastructure/              # Contract tests parametrized over impls
-├── application/                 # Use case orchestration (in-memory only)
-└── api/                         # HTTP end-to-end via httpx ASGITransport
+tests/                             # Mirrors the source tree 1:1
+├── conftest.py                    # Cross-feature fixtures (valid_*, clock, client, cli_setup)
+├── book/{domain, application, infrastructure, presentation/{api,cli}}/
+├── member/{…}
+├── loan/{…}
+└── shared/infrastructure/{test_clock.py, cache/test_in_memory.py}
 ```
 
 Browse the source: [`library/`](library/) · [`tests/`](tests/).
@@ -123,16 +144,16 @@ Browse the source: [`library/`](library/) · [`tests/`](tests/).
 
 ### Repository Pattern (Ports & Adapters)
 
-`BookRepository`, `MemberRepository`, `LoanRepository` are `typing.Protocol`
-classes in [`domain/repositories.py`](library/domain/repositories.py).
-Three concrete implementations live in [`infrastructure/`](library/infrastructure/):
-[`InMemory*`](library/infrastructure/in_memory_repositories.py),
-[`Sql*`](library/infrastructure/sql/), plus a
-[`Cached*`](library/infrastructure/cached/) decorator. Use cases depend
-only on the protocol; they have no idea which backend they're talking to.
+[`BookRepository`](library/book/domain/repository.py),
+[`MemberRepository`](library/member/domain/repository.py), and
+[`LoanRepository`](library/loan/domain/repository.py) are `typing.Protocol`
+classes living in each feature's `domain/`. Three concrete implementations live in
+the feature's `infrastructure/`: `InMemory*`, `Sql*`, plus a `Cached*` decorator
+(books and members only). Use cases depend only on the protocol; they have no idea
+which backend they're talking to.
 
 A single contract test suite is parametrized over every implementation
-([`tests/infrastructure/conftest.py`](tests/infrastructure/conftest.py)):
+([`tests/book/infrastructure/conftest.py`](tests/book/infrastructure/conftest.py)):
 
 ```python
 @pytest.fixture(params=["in_memory", "sql", "cache_redis", "cache_in_memory"])
@@ -141,39 +162,39 @@ async def empty_book_repo(request, sql_book_repo):
 ```
 
 If a new implementation passes the contract suite, it is provably substitutable
-(LSP). 78 contract tests run against 4 backends.
+(LSP). 106 contract tests run across the three feature repos × multiple backends.
 
 ### Decorator Pattern (CachedBookRepository)
 
-[`CachedBookRepository`](library/infrastructure/cached/book_repository.py)
-wraps any `BookRepository` and adds Redis caching to `find_by_id`. The cache layer
-itself is abstracted behind a `Cache` protocol
-([`cached/protocol.py`](library/infrastructure/cached/protocol.py))
+[`CachedBookRepository`](library/book/infrastructure/cached_repository.py) wraps any
+`BookRepository` and adds Redis caching to `find_by_id`. The cache layer itself is
+abstracted behind a `Cache` protocol
+([`shared/infrastructure/cache/protocol.py`](library/shared/infrastructure/cache/protocol.py))
 with two implementations:
-[`RedisCache`](library/infrastructure/cached/redis_cache.py) (network)
-and [`InMemoryCache`](library/infrastructure/cached/in_memory.py) (LRU).
-The decorator works against any cache, the cache works against any backend.
-DIP applied recursively.
+[`RedisCache`](library/shared/infrastructure/cache/redis.py) (network) and
+[`InMemoryCache`](library/shared/infrastructure/cache/in_memory.py) (LRU). The decorator
+works against any cache, the cache works against any backend. DIP applied recursively.
 
 ### Clock Pattern (testable time)
 
 Use cases never call `datetime.now()` directly. They depend on a `Clock` protocol
-([`application/clock.py`](library/application/clock.py)) injected through
-the constructor. Production uses
-[`SystemClock`](library/infrastructure/clock.py); tests use a `FakeClock`
+([`shared/application/clock.py`](library/shared/application/clock.py)) injected
+through the constructor. Production uses
+[`SystemClock`](library/shared/infrastructure/clock.py); tests use a `FakeClock`
 returning a fixed time. Tests can assert exact timestamps, not "within a few
 seconds of now".
 
 ### Repository per Aggregate, ID references between aggregates
 
-[`Loan`](library/domain/models.py) references its book and member by
-`UUID`, not by object reference. Each aggregate is loaded and saved
-independently. This keeps consistency boundaries explicit and aggregates
-persistable in isolation.
+[`Loan`](library/loan/domain/model.py) references its book and member by `UUID`, not
+by object reference. Each aggregate is loaded and saved independently. This keeps
+consistency boundaries explicit and aggregates persistable in isolation — and it is
+what makes the `loan/` slice possible without `book/` and `member/` having to know
+about it.
 
 ### Configuration as code (fail-fast Pydantic Settings)
 
-From [`library/config.py`](library/config.py):
+From [`library/shared/config.py`](library/shared/config.py):
 
 ```python
 class Settings(BaseSettings):
@@ -186,18 +207,18 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="forbid")
 ```
 
-Required env vars are validated at import time, not on first use. Typos
-in env names (`DATABSE_URL`) fail loudly thanks to `extra="forbid"`.
+Required env vars are validated at import time, not on first use. Typos in env names
+(`DATABSE_URL`) fail loudly thanks to `extra="forbid"`.
 
 ### Structured logging with request context
 
 `structlog` is configured in
-[`library/logging_config.py`](library/logging_config.py) with
+[`library/shared/logging_config.py`](library/shared/logging_config.py) with
 `contextvars.merge_contextvars`. The HTTP middleware
-([`api/middleware.py`](library/api/middleware.py)) binds `request_id`,
-`method`, `path` once per request, and every downstream log call — including
-cache failures three layers deep — automatically inherits that context. Logs
-render as colorized console output in development, JSON in production.
+([`shared/presentation/api/middleware.py`](library/shared/presentation/api/middleware.py))
+binds `request_id`, `method`, `path` once per request, and every downstream log call —
+including cache failures three layers deep — automatically inherits that context.
+Logs render as colorized console output in development, JSON in production.
 
 ---
 
@@ -205,12 +226,14 @@ render as colorized console output in development, JSON in production.
 
 | Layer | Count | What it proves |
 |-------|------:|----------------|
-| [Domain](tests/domain/) | 63 | Business rules without any I/O |
-| [Infrastructure contract](tests/infrastructure/test_repositories.py) | ~90 | Every repository implementation satisfies its protocol (LSP) |
-| [Cache behavior](tests/infrastructure/test_cached_repositories.py) | 12 | Decorator caches on read, invalidates on write |
-| [In-memory cache](tests/infrastructure/test_in_memory_cache.py) | 11 | LRU eviction, move-to-end on access |
-| [Use cases](tests/application/) | 35 | Orchestration logic with in-memory fakes, no I/O |
-| [API end-to-end](tests/api/) | 28 | HTTP ↔ use case translation, exception → status mapping |
+| [Domain](tests/) (book + member + loan) | 63 | Business rules without any I/O |
+| [Application (use cases)](tests/) | 27 | Orchestration logic with in-memory fakes, no I/O |
+| [Infrastructure contract](tests/) | 106 | Every repository implementation satisfies its protocol (LSP) across 4 backends |
+| [Cache behavior](tests/) | 12 | Decorator caches on read, invalidates on write (book + member) |
+| [In-memory cache](tests/shared/infrastructure/cache/test_in_memory.py) | 11 | LRU eviction, move-to-end on access |
+| [Clock](tests/shared/infrastructure/test_clock.py) | 2 | SystemClock satisfies the Clock protocol |
+| [API end-to-end](tests/) | 18 | HTTP ↔ use case translation, exception → status mapping |
+| [CLI end-to-end](tests/) | 19 | Typer commands ↔ use cases, exit codes, error output |
 
 Each level tests one rung of abstraction; almost no duplication between levels.
 
@@ -220,6 +243,7 @@ Each level tests one rung of abstraction; almost no duplication between levels.
 
 - **Python 3.12+** (async/await throughout)
 - **FastAPI** — driving HTTP adapter
+- **Typer + Rich** — driving CLI adapter
 - **SQLAlchemy 2.x Core** (not ORM) — dialect-agnostic SQL
 - **asyncpg** / **aiosqlite** — async database drivers
 - **redis-py** (async) — cache adapter
@@ -247,7 +271,7 @@ python -m venv .venv
 .venv\Scripts\activate           # Windows
 # source .venv/bin/activate      # macOS / Linux
 
-pip install -e ".[dev]"
+pip install -e ".[dev,cli]"
 ```
 
 ### Configure
@@ -277,7 +301,7 @@ pytest
 ### Run the API
 
 ```sh
-uvicorn library.api.main:app --reload
+uvicorn library.shared.presentation.api.main:app --reload
 ```
 
 Then open `http://localhost:8000/docs` for the interactive Swagger UI.
@@ -301,7 +325,7 @@ Then open `http://localhost:8000/docs` for the interactive Swagger UI.
 | `GET` | `/health` | Liveness probe |
 
 Domain exceptions are mapped to HTTP statuses centrally in
-[`api/main.py`](library/api/main.py):
+[`shared/presentation/api/main.py`](library/shared/presentation/api/main.py):
 
 ```python
 BookNotFound       → 404
@@ -313,17 +337,16 @@ BookNotAvailable   → 409
 ValueError         → 422   # invalid VO / domain invariant
 ```
 
-Routers ([`api/routers/`](library/api/routers/)) never `try/except` —
-they let exceptions bubble up to the handlers.
+Routers (one per feature, under [`<feature>/presentation/api/router.py`](library/book/presentation/api/router.py))
+never `try/except` — they let exceptions bubble up to the handlers.
 
 ---
 
 ## CLI
 
 The same use cases are exposed through a second driving adapter — a Typer-based
-command-line interface in [`library/cli/`](library/cli/). It is **parallel** to
-the FastAPI adapter, not built on top of it; both talk directly to the
-application layer.
+command-line interface. The CLI is **parallel** to the FastAPI adapter, not built
+on top of it; both talk directly to the application layer.
 
 Install the CLI extra:
 
@@ -351,32 +374,32 @@ library loans return <loan-id>
 
 ### How it mirrors the API without duplicating logic
 
-`library/cli/` adds:
+Each feature owns its own [`presentation/cli/commands.py`](library/book/presentation/cli/commands.py)
+(thin Typer functions that resolve the container, build the use case, call `execute()`,
+print the result). The composition root in
+[`shared/presentation/cli/`](library/shared/presentation/cli/) supplies:
 
-- [`main.py`](library/cli/main.py) — Typer app and subcommand wiring
-- [`container.py`](library/cli/container.py) — `cli_context()` async context
-  manager that opens engine + session + Redis, builds repositories, commits
-  on success, rolls back on exception. This is the CLI's equivalent of
-  FastAPI's per-request `get_session` dependency.
-- [`commands/`](library/cli/commands/) — one file per entity (`book.py`,
-  `member.py`, `loan.py`). Each command is a thin Typer function that
-  resolves the container, builds the relevant use case, calls `execute()`,
-  and prints the result.
-- [`output.py`](library/cli/output.py) — small Rich helpers for tables,
+- [`main.py`](library/shared/presentation/cli/main.py) — Typer app that mounts each feature's
+  subcommands (`books`, `members`, `loans`).
+- [`container.py`](library/shared/presentation/cli/container.py) — `cli_context()` async
+  context manager that opens engine + session + Redis, builds repositories for all three
+  features, commits on success, rolls back on exception. The CLI's equivalent of FastAPI's
+  per-request `get_session` dependency.
+- [`output.py`](library/shared/presentation/cli/output.py) — small Rich helpers for tables,
   success messages, and error formatting on stderr.
 
-Domain, application, infrastructure — **zero changes**. The CLI shares
-exactly the same use cases (`AddBookUseCase`, `BorrowBookUseCase`, …) that
-the HTTP routers consume.
+Domain, application, infrastructure — **zero changes** when the CLI was added.
+The CLI shares exactly the same use cases (`AddBookUseCase`, `BorrowBookUseCase`, …)
+that the HTTP routers consume.
 
 ### Architectural takeaway
 
 Adding the CLI was the most direct possible demonstration of the
-**Driving Adapter** concept. The use cases never knew which protocol
-called them. Same `BorrowBookUseCase(books, members, loans, clock)`
-serves both `POST /loans` over HTTP and `library loans borrow --book-id …`
-on the shell. Replace Typer with gRPC, AMQP, a Discord bot — the
-substitution is local to `library/<new-adapter>/`.
+**Driving Adapter** concept. The use cases never knew which protocol called them.
+Same `BorrowBookUseCase(books, members, loans, clock)` serves both `POST /loans`
+over HTTP and `library loans borrow --book-id …` on the shell. Replace Typer with
+gRPC, AMQP, a Discord bot — the substitution is local to
+`<feature>/presentation/<new-adapter>/` (plus a tiny composition root entry).
 
 ---
 
@@ -467,38 +490,75 @@ the source mount and with `--reload` removed.
 
 ## Architectural decisions worth highlighting
 
-### Repository protocols live in `domain/`, not `application/`
+### Hybrid: hexagonal layers inside feature folders
 
-The repository expresses what the domain **demands** from persistence,
-in domain language (`find_by_isbn`, not `SELECT * FROM books`). It is the
-domain's outward-facing port. Implementations belong outside the domain;
-the interface belongs inside it. See
-[`domain/repositories.py`](library/domain/repositories.py).
+A classic hexagonal codebase groups by *technical layer* — one `domain/`, one
+`application/`, one `infrastructure/`, one `api/`. That answers "what kind of code
+is this?" but forces a developer working on "books" to touch five or six folders.
 
-### `Cache` protocol lives in `infrastructure/`, not `domain/`
+A pure Vertical-Slice Architecture goes the other way and slices per use case —
+`book/add_book/`, `book/read_book/`, etc. — but at this project's size that produces
+many almost-empty per-slice `domain/` and `infrastructure/` folders that just
+re-export shared types.
 
-Caching is a runtime optimization — domain entities know nothing about it.
-The protocol ([`cached/protocol.py`](library/infrastructure/cached/protocol.py))
-is consumed only by other infrastructure code
-([`CachedBookRepository`](library/infrastructure/cached/book_repository.py)).
-It is an *internal* abstraction of the infrastructure layer, not a domain concern.
+This codebase picks the **middle**: slice by bounded context (`book/`, `member/`,
+`loan/`), keep hexagonal layers inside each slice. You get the "everything about
+books is in one place" win, you keep hexagonal discipline, and the layer folders
+inside a slice are actually populated. Going further to per-use-case slices is left
+as a path you take when individual use cases start having genuinely independent
+schemas, persistence concerns, or owners — not before.
 
-### Pydantic schemas in `api/`, never in `domain/`
+### `shared/` for cross-cutting code, not a junk drawer
 
-[`BookCreate` and `BookResponse`](library/api/schemas/book.py) are HTTP DTOs.
-They translate between HTTP and domain. Validation of HTTP-format concerns (required
-fields, JSON types) happens in the schema; validation of domain invariants
+[`shared/`](library/shared/) holds only code that is **provably cross-cutting**:
+the `Clock` port (every use case that needs time), the `Cache` protocol (used by
+multiple features' cached repositories), shared SQL `MetaData` (so all tables register
+into one schema), the FastAPI composition root, the Typer composition root, config,
+and logging. Domain models, repositories, and use cases all live in their feature
+folder. The rule is: if exactly one feature uses it, it belongs in that feature.
+
+### Cross-slice imports are explicit and one-way
+
+The `loan` slice's
+[`BorrowBookUseCase`](library/loan/application/use_cases/borrow_book.py) imports
+`BookRepository`, `MemberRepository`, and `BookNotAvailable` / `BookNotFound` /
+`MemberNotFound` from its sibling slices. That is correct — borrowing a book is a
+multi-aggregate operation. The reverse is enforced not by tooling but by review:
+`book/` and `member/` must not import from `loan/`. This is the modular-monolith
+equivalent of "`loan` is downstream of `book` and `member`."
+
+### Repository protocols live in `<feature>/domain/`, not `<feature>/application/`
+
+The repository expresses what the domain **demands** from persistence, in domain
+language (`find_by_isbn`, not `SELECT * FROM books`). It is the domain's outward-facing
+port. Implementations belong outside the domain; the interface belongs inside it. See
+[`book/domain/repository.py`](library/book/domain/repository.py).
+
+### `Cache` protocol lives in `shared/infrastructure/`, not in any domain
+
+Caching is a runtime optimization — domain entities know nothing about it. The
+protocol ([`shared/infrastructure/cache/protocol.py`](library/shared/infrastructure/cache/protocol.py))
+is consumed only by other infrastructure code (`CachedBookRepository`,
+`CachedMemberRepository`). It is an *internal* abstraction of the infrastructure
+layer, not a domain concern, and it is shared because the same `Cache` instance backs
+both feature decorators.
+
+### Pydantic schemas in `<feature>/presentation/api/`, never in `<feature>/domain/`
+
+[`BookCreate` and `BookResponse`](library/book/presentation/api/schemas.py) are HTTP
+DTOs. They translate between HTTP and domain. Validation of HTTP-format concerns
+(required fields, JSON types) happens in the schema; validation of domain invariants
 (non-empty title, valid ISBN format) happens in the
-[entity](library/domain/models.py). No duplication — the API schema is
-intentionally permissive, the domain rejects invalid state.
+[entity](library/book/domain/model.py). No duplication — the API schema is intentionally
+permissive, the domain rejects invalid state.
 
 ### Session-per-request, not Unit of Work
 
 A `UnitOfWork` abstraction was introduced and then removed. For this project,
 FastAPI's per-request dependency cache plus `get_session` in
-[`api/dependencies.py`](library/api/dependencies.py) (which commits on
-success, rolls back on exception) already provide transactional consistency
-across multiple repositories — the same session is shared automatically.
+[`shared/presentation/api/dependencies.py`](library/shared/presentation/api/dependencies.py)
+(which commits on success, rolls back on exception) already provide transactional
+consistency across multiple repositories — the same session is shared automatically.
 A separate `UnitOfWork` layer would have duplicated this without adding value.
 
 The lesson: **a pattern earns its place by solving present pain, not by
@@ -507,8 +567,8 @@ appearing in textbooks.**
 ### Use cases are classes, not functions
 
 `AddBookUseCase`, `BorrowBookUseCase`, etc.
-([`application/use_cases/`](library/application/use_cases/)) each have a
-single `execute(command)` method. Why classes for what could be functions?
+(`<feature>/application/use_cases/`) each have a single `execute(command)` method.
+Why classes for what could be functions?
 
 - Constructor injection of dependencies (repositories, clock).
 - One file per use case → easy to find, hard to merge-conflict.
@@ -517,13 +577,12 @@ single `execute(command)` method. Why classes for what could be functions?
 
 ### CRUD use cases get individual repositories; multi-aggregate use cases too
 
-The simple use cases ([`AddBookUseCase`](library/application/use_cases/add_book.py),
-[`DeleteBookUseCase`](library/application/use_cases/delete_book.py))
-take one repository.
-[`BorrowBookUseCase`](library/application/use_cases/borrow_book.py) takes
-three (`books`, `members`, `loans`) plus a `Clock`. FastAPI's DI cache ensures
-they share the same SQL session within a request, so atomicity is preserved
-without extra abstractions.
+The simple use cases ([`AddBookUseCase`](library/book/application/use_cases/add_book.py),
+[`DeleteBookUseCase`](library/book/application/use_cases/delete_book.py)) take one
+repository. [`BorrowBookUseCase`](library/loan/application/use_cases/borrow_book.py)
+takes three (`books`, `members`, `loans`) plus a `Clock`. FastAPI's DI cache ensures
+they share the same SQL session within a request, so atomicity is preserved without
+extra abstractions.
 
 ---
 
@@ -531,6 +590,9 @@ without extra abstractions.
 
 These were considered and intentionally left out:
 
+- **Per-use-case slicing** — see the architecture decision above. Per-entity slices
+  hit the cost/benefit sweet spot at this size; per-use-case adds folder noise without
+  proportional payoff.
 - **CQRS** — read and write models are the same. No projection layer.
 - **Event sourcing** — state is the current value of fields, not a log of events.
 - **Authentication / authorization** — orthogonal to the architecture lesson.
