@@ -10,6 +10,7 @@ class Member:
     name: str
     email: Email
     password_hash: str
+    is_verified: bool = False
 
     def __post_init__(self):
         self.name = self.name.strip()
@@ -26,3 +27,8 @@ class Member:
 
     def __hash__(self):
         return hash(self.id)
+
+    def mark_verified(self) -> None:
+        """Flip is_verified to True. Idempotent — verifying an already-
+        verified member is a no-op."""
+        self.is_verified = True

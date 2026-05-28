@@ -105,6 +105,22 @@ class TestMemberRepository:
         saved_member = await member_repo_with_member.find_by_id(valid_member.id)
         assert saved_member.name == "Updated name"
 
+    async def test_is_verified_round_trips(
+        self,
+        empty_member_repo: MemberRepository,
+        valid_member: Member,
+    ):
+        # Default false on create.
+        await empty_member_repo.create(valid_member)
+        saved = await empty_member_repo.find_by_id(valid_member.id)
+        assert saved.is_verified is False
+
+        # Update flips it; persisted value comes back true.
+        valid_member.mark_verified()
+        await empty_member_repo.update(valid_member)
+        saved = await empty_member_repo.find_by_id(valid_member.id)
+        assert saved.is_verified is True
+
     async def test_update_unsaved_member_raises(
         self, empty_member_repo: MemberRepository, valid_member: Member
     ):

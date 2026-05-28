@@ -16,6 +16,7 @@ class SqlMemberRepository:
             name=row.name,
             email=Email(row.email),
             password_hash=row.password_hash,
+            is_verified=row.is_verified,
         )
         member.id = row.id
         return member
@@ -26,6 +27,7 @@ class SqlMemberRepository:
             name=member.name,
             email=member.email.value,
             password_hash=member.password_hash,
+            is_verified=member.is_verified,
         )
         await self._session.execute(stmt)
 
@@ -37,6 +39,7 @@ class SqlMemberRepository:
                 name=member.name,
                 email=member.email.value,
                 password_hash=member.password_hash,
+                is_verified=member.is_verified,
             )
         )
         result = await self._session.execute(stmt)

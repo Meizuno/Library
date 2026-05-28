@@ -22,6 +22,7 @@ class CachedMemberRepository:
                 "name": member.name,
                 "email": member.email.value,
                 "password_hash": member.password_hash,
+                "is_verified": member.is_verified,
             }
         )
 
@@ -31,6 +32,7 @@ class CachedMemberRepository:
             name=data["name"],
             email=Email(data["email"]),
             password_hash=data["password_hash"],
+            is_verified=data.get("is_verified", False),
         )
         member.id = UUID(data["id"])
         return member

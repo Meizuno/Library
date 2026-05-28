@@ -62,3 +62,31 @@ class TestMember:
         m_2.id = shared_id
         assert hash(m_1) == hash(m_2)
         assert len({m_1, m_2}) == 1
+
+    def test_is_verified_defaults_to_false(self, valid_email):
+        member = Member(name="Name", email=valid_email, password_hash=_HASH)
+        assert member.is_verified is False
+
+    def test_is_verified_can_be_set_via_constructor(self, valid_email):
+        member = Member(
+            name="Name",
+            email=valid_email,
+            password_hash=_HASH,
+            is_verified=True,
+        )
+        assert member.is_verified is True
+
+    def test_mark_verified_flips_to_true(self, valid_email):
+        member = Member(name="Name", email=valid_email, password_hash=_HASH)
+        member.mark_verified()
+        assert member.is_verified is True
+
+    def test_mark_verified_is_idempotent(self, valid_email):
+        member = Member(
+            name="Name",
+            email=valid_email,
+            password_hash=_HASH,
+            is_verified=True,
+        )
+        member.mark_verified()  # no-op
+        assert member.is_verified is True
