@@ -4,8 +4,10 @@ import uuid
 import structlog
 from fastapi import Request
 
+from library.shared.infrastructure.structlog_logger import get_logger
 
-logger = structlog.get_logger(__name__)
+
+logger = get_logger(__name__)
 
 
 async def request_logging_middleware(request: Request, call_next):

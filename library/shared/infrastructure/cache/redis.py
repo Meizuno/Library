@@ -1,9 +1,10 @@
-import structlog
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
+from library.shared.infrastructure.structlog_logger import get_logger
 
-logger = structlog.get_logger(__name__)
+
+logger = get_logger(__name__)
 
 
 class RedisCache:
