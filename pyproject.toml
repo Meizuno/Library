@@ -44,5 +44,6 @@ disable = [
     "too-many-arguments",
     "too-many-positional-arguments",
     "redefined-outer-name",  # pytest fixtures inherently look like shadowing
+    "unused-argument",       # pytest side-effect fixtures (e.g. member_repo_with_member) look unused
     "duplicate-code",        # repeated test invocation patterns are intentional for clarity
 ]
