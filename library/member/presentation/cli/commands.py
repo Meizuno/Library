@@ -41,10 +41,18 @@ async def _list_members() -> None:
 def add_member(
     name: Annotated[str, typer.Option(help="Member name")],
     email: Annotated[str, typer.Option(help="Member email")],
+    password: Annotated[
+        str,
+        typer.Option(
+            help="Member password (min 8 chars)",
+            prompt=True,
+            hide_input=True,
+        ),
+    ],
 ) -> None:
     """Add a new member."""
     try:
-        asyncio.run(_add_member(name, email))
+        asyncio.run(_add_member(name, email, password))
     except ValueError as exc:
         print_error(str(exc))
         raise typer.Exit(code=1) from exc
@@ -53,10 +61,10 @@ def add_member(
         raise typer.Exit(code=1) from exc
 
 
-async def _add_member(name: str, email: str) -> None:
+async def _add_member(name: str, email: str, password: str) -> None:
     async with cli_context() as ctx:
-        member = await AddMemberUseCase(ctx.members).execute(
-            AddMemberCommand(name=name, email=email)
+        member = await AddMemberUseCase(ctx.members, ctx.hasher).execute(
+            AddMemberCommand(name=name, email=email, password=password)
         )
     print_success(f"Added member {member.id}")
     print_member(member)

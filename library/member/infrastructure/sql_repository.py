@@ -15,6 +15,7 @@ class SqlMemberRepository:
         member = Member(
             name=row.name,
             email=Email(row.email),
+            password_hash=row.password_hash,
         )
         member.id = row.id
         return member
@@ -24,6 +25,7 @@ class SqlMemberRepository:
             id=member.id,
             name=member.name,
             email=member.email.value,
+            password_hash=member.password_hash,
         )
         await self._session.execute(stmt)
 
@@ -34,6 +36,7 @@ class SqlMemberRepository:
             .values(
                 name=member.name,
                 email=member.email.value,
+                password_hash=member.password_hash,
             )
         )
         result = await self._session.execute(stmt)

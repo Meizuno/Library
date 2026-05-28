@@ -21,3 +21,4 @@ class MemberResponse(BaseModel):
 class MemberCreate(BaseModel):
     name: str = Field(min_length=1)
     email: EmailStr
+    password: str = Field(min_length=8)

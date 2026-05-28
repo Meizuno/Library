@@ -34,7 +34,11 @@ async def create_member(
     ),
 ) -> MemberResponse:
     member = await add_member_use_case.execute(
-        AddMemberCommand(name=command.name, email=command.email)
+        AddMemberCommand(
+            name=command.name,
+            email=command.email,
+            password=command.password,
+        )
     )
     return MemberResponse.from_domain(member)
 

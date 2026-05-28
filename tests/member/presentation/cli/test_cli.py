@@ -21,6 +21,8 @@ def test_members_add_then_list(runner: CliRunner, cli_setup):
             "Alice",
             "--email",
             "alice@example.com",
+            "--password",
+            "password",
         ],
     )
     assert add_result.exit_code == 0
@@ -34,7 +36,16 @@ def test_members_add_then_list(runner: CliRunner, cli_setup):
 def test_members_add_duplicate_email_exits_with_error(
     runner: CliRunner, cli_setup
 ):
-    args = ["members", "add", "--name", "Bob", "--email", "bob@example.com"]
+    args = [
+        "members",
+        "add",
+        "--name",
+        "Bob",
+        "--email",
+        "bob@example.com",
+        "--password",
+        "password",
+    ]
     first = runner.invoke(app, args)
     assert first.exit_code == 0
 
@@ -48,7 +59,36 @@ def test_members_add_invalid_email_exits_with_error(
 ):
     result = runner.invoke(
         app,
-        ["members", "add", "--name", "Bob", "--email", "not-an-email"],
+        [
+            "members",
+            "add",
+            "--name",
+            "Bob",
+            "--email",
+            "not-an-email",
+            "--password",
+            "password",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "Error" in result.output
+
+
+def test_members_add_short_password_exits_with_error(
+    runner: CliRunner, cli_setup
+):
+    result = runner.invoke(
+        app,
+        [
+            "members",
+            "add",
+            "--name",
+            "Bob",
+            "--email",
+            "bob@example.com",
+            "--password",
+            "short",
+        ],
     )
     assert result.exit_code == 1
     assert "Error" in result.output

@@ -5,3 +5,4 @@ from dataclasses import dataclass
 class AddMemberCommand:
     name: str
     email: str
+    password: str

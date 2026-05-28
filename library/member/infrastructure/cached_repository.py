@@ -21,12 +21,17 @@ class CachedMemberRepository:
                 "id": str(member.id),
                 "name": member.name,
                 "email": member.email.value,
+                "password_hash": member.password_hash,
             }
         )
 
     def _json_to_member(self, raw: str) -> Member:
         data = json.loads(raw)
-        member = Member(name=data["name"], email=Email(data["email"]))
+        member = Member(
+            name=data["name"],
+            email=Email(data["email"]),
+            password_hash=data["password_hash"],
+        )
         member.id = UUID(data["id"])
         return member
 

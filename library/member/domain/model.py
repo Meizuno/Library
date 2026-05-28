@@ -9,12 +9,15 @@ class Member:
     id: UUID = field(init=False, default_factory=uuid4)
     name: str
     email: Email
+    password_hash: str
 
     def __post_init__(self):
         self.name = self.name.strip()
 
         if not self.name:
             raise ValueError("name cannot be empty")
+        if not self.password_hash:
+            raise ValueError("password_hash cannot be empty")
 
     def __eq__(self, other):
         if not isinstance(other, Member):
