@@ -11,7 +11,8 @@ from library.loan.infrastructure import InMemoryLoanRepository, SqlLoanRepositor
 class TestProtocolSatisfaction:
     def test_in_memory_loan_repo_satisfies_protocol(self):
         repo: LoanRepository = InMemoryLoanRepository()
-        assert hasattr(repo, "save")
+        assert hasattr(repo, "create")
+        assert hasattr(repo, "update")
         assert hasattr(repo, "find_by_id")
         assert hasattr(repo, "find_active_by_book")
         assert hasattr(repo, "find_by_member")
@@ -20,7 +21,8 @@ class TestProtocolSatisfaction:
 
     def test_sql_loan_repo_satisfies_protocol(self):
         repo: LoanRepository = SqlLoanRepository(AsyncSession())
-        assert hasattr(repo, "save")
+        assert hasattr(repo, "create")
+        assert hasattr(repo, "update")
         assert hasattr(repo, "find_by_id")
         assert hasattr(repo, "find_active_by_book")
         assert hasattr(repo, "find_by_member")
@@ -32,10 +34,10 @@ class TestLoanRepository:
     async def test_get_list_without_loan(self, empty_loan_repo: LoanRepository):
         assert await empty_loan_repo.list_all() == []
 
-    async def test_save_loan(
+    async def test_create_loan(
         self, empty_loan_repo: LoanRepository, valid_loan: Loan
     ):
-        await empty_loan_repo.save(valid_loan)
+        await empty_loan_repo.create(valid_loan)
         assert await empty_loan_repo.find_by_id(valid_loan.id) == valid_loan
 
     async def test_read_unsaved_loan(self, empty_loan_repo: LoanRepository):
@@ -57,9 +59,15 @@ class TestLoanRepository:
         self, loan_repo_with_loan: LoanRepository, valid_loan: Loan
     ):
         valid_loan.mark_returned(valid_loan.due_at)
-        await loan_repo_with_loan.save(valid_loan)
+        await loan_repo_with_loan.update(valid_loan)
         saved_loan = await loan_repo_with_loan.find_by_id(valid_loan.id)
         assert saved_loan.is_returned
+
+    async def test_update_unsaved_loan_raises(
+        self, empty_loan_repo: LoanRepository, valid_loan: Loan
+    ):
+        with pytest.raises(LoanNotFound):
+            await empty_loan_repo.update(valid_loan)
 
     async def test_delete_saved_loan(
         self, loan_repo_with_loan: LoanRepository, valid_loan: Loan
@@ -83,7 +91,7 @@ class TestLoanRepository:
         self, loan_repo_with_loan: LoanRepository, valid_loan: Loan
     ):
         valid_loan.mark_returned(valid_loan.due_at)
-        await loan_repo_with_loan.save(valid_loan)
+        await loan_repo_with_loan.update(valid_loan)
         found = await loan_repo_with_loan.find_active_by_book(
             valid_loan.book_id
         )
@@ -111,8 +119,8 @@ class TestLoanRepository:
             loaned_at=loaned_at,
             due_at=loaned_at + timedelta(days=14),
         )
-        await empty_loan_repo.save(loan_1)
-        await empty_loan_repo.save(loan_2)
+        await empty_loan_repo.create(loan_1)
+        await empty_loan_repo.create(loan_2)
 
         loans = await empty_loan_repo.find_by_member(member_id)
         assert set(loans) == {loan_1, loan_2}

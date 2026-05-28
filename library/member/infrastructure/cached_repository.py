@@ -30,8 +30,12 @@ class CachedMemberRepository:
         member.id = UUID(data["id"])
         return member
 
-    async def save(self, member: Member) -> None:
-        await self._inner_repo.save(member)
+    async def create(self, member: Member) -> None:
+        await self._inner_repo.create(member)
+        await self._cache.delete(self._data_key(member.id))
+
+    async def update(self, member: Member) -> None:
+        await self._inner_repo.update(member)
         await self._cache.delete(self._data_key(member.id))
 
     async def find_by_id(self, member_id: UUID) -> Member | None:

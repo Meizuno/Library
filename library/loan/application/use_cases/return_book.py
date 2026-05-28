@@ -14,5 +14,5 @@ class ReturnBookUseCase:
             raise LoanNotFound(f"Loan {command.loan_id} not found")
 
         loan.mark_returned(self._clock.now())
-        await self._loans.save(loan)
+        await self._loans.update(loan)
         return loan

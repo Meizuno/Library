@@ -44,5 +44,5 @@ class BorrowBookUseCase:
             loaned_at=now,
             due_at=now + timedelta(days=self._loan_period_days),
         )
-        await self._loans.save(loan)
+        await self._loans.create(loan)
         return loan

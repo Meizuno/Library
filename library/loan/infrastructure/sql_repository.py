@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select, insert, update, delete
+from sqlalchemy import delete, insert, select, update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from library.loan.domain import Loan, LoanNotFound
@@ -22,32 +22,32 @@ class SqlLoanRepository:
         loan.id = row.id
         return loan
 
-    async def save(self, loan: Loan) -> None:
-        stmt = select(loans_table.c.id).where(loans_table.c.id == loan.id)
-        existing = await self._session.execute(stmt)
-        if existing.scalar_one_or_none() is not None:
-            stmt = (
-                update(loans_table)
-                .where(loans_table.c.id == loan.id)
-                .values(
-                    book_id=loan.book_id,
-                    member_id=loan.member_id,
-                    loaned_at=loan.loaned_at,
-                    due_at=loan.due_at,
-                    returned_at=loan.returned_at,
-                )
-            )
-        else:
-            stmt = insert(loans_table).values(
-                id=loan.id,
+    async def create(self, loan: Loan) -> None:
+        stmt = insert(loans_table).values(
+            id=loan.id,
+            book_id=loan.book_id,
+            member_id=loan.member_id,
+            loaned_at=loan.loaned_at,
+            due_at=loan.due_at,
+            returned_at=loan.returned_at,
+        )
+        await self._session.execute(stmt)
+
+    async def update(self, loan: Loan) -> None:
+        stmt = (
+            sql_update(loans_table)
+            .where(loans_table.c.id == loan.id)
+            .values(
                 book_id=loan.book_id,
                 member_id=loan.member_id,
                 loaned_at=loan.loaned_at,
                 due_at=loan.due_at,
                 returned_at=loan.returned_at,
             )
-
-        await self._session.execute(stmt)
+        )
+        result = await self._session.execute(stmt)
+        if result.rowcount == 0:
+            raise LoanNotFound(f"Loan {loan.id} not found")
 
     async def find_by_id(self, loan_id: UUID) -> Loan | None:
         stmt = select(loans_table).where(loans_table.c.id == loan_id)

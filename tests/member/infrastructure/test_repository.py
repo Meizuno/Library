@@ -21,7 +21,8 @@ from library.shared.infrastructure.cache import RedisCache
 class TestProtocolSatisfaction:
     def test_in_memory_member_repo_satisfies_protocol(self):
         repo: MemberRepository = InMemoryMemberRepository()
-        assert hasattr(repo, "save")
+        assert hasattr(repo, "create")
+        assert hasattr(repo, "update")
         assert hasattr(repo, "find_by_id")
         assert hasattr(repo, "find_by_email")
         assert hasattr(repo, "list_all")
@@ -31,7 +32,8 @@ class TestProtocolSatisfaction:
         repo: MemberRepository = CachedMemberRepository(
             sql_member_repo, RedisCache(FakeAsyncRedis(), 300)
         )
-        assert hasattr(repo, "save")
+        assert hasattr(repo, "create")
+        assert hasattr(repo, "update")
         assert hasattr(repo, "find_by_id")
         assert hasattr(repo, "find_by_email")
         assert hasattr(repo, "list_all")
@@ -39,7 +41,8 @@ class TestProtocolSatisfaction:
 
     def test_sql_member_repo_satisfies_protocol(self):
         repo: MemberRepository = SqlMemberRepository(AsyncSession())
-        assert hasattr(repo, "save")
+        assert hasattr(repo, "create")
+        assert hasattr(repo, "update")
         assert hasattr(repo, "find_by_id")
         assert hasattr(repo, "find_by_email")
         assert hasattr(repo, "list_all")
@@ -52,10 +55,10 @@ class TestMemberRepository:
     ):
         assert await empty_member_repo.list_all() == []
 
-    async def test_save_member(
+    async def test_create_member(
         self, empty_member_repo: MemberRepository, valid_member: Member
     ):
-        await empty_member_repo.save(valid_member)
+        await empty_member_repo.create(valid_member)
         assert (
             await empty_member_repo.find_by_id(valid_member.id) == valid_member
         )
@@ -98,9 +101,15 @@ class TestMemberRepository:
         valid_member: Member,
     ):
         valid_member.name = "Updated name"
-        await member_repo_with_member.save(valid_member)
+        await member_repo_with_member.update(valid_member)
         saved_member = await member_repo_with_member.find_by_id(valid_member.id)
         assert saved_member.name == "Updated name"
+
+    async def test_update_unsaved_member_raises(
+        self, empty_member_repo: MemberRepository, valid_member: Member
+    ):
+        with pytest.raises(MemberNotFound):
+            await empty_member_repo.update(valid_member)
 
     async def test_delete_saved_member(
         self,

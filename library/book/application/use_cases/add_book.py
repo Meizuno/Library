@@ -15,5 +15,5 @@ class AddBookUseCase:
             )
 
         book = Book(title=command.title, author=command.author, isbn=isbn)
-        await self._book_repo.save(book)
+        await self._book_repo.create(book)
         return book

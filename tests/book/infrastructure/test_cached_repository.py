@@ -30,17 +30,29 @@ class TestCachedBookRepository:
 
         assert inner.find_by_id.call_count == 2
 
-    async def test_save_invalidates_cache(self, valid_book: Book):
+    async def test_create_invalidates_cache(self, valid_book: Book):
         inner = AsyncMock(spec=BookRepository)
         inner.find_by_id.return_value = valid_book
         repo = CachedBookRepository(inner, InMemoryCache(100))
 
         await repo.find_by_id(valid_book.id)
-        await repo.save(valid_book)
+        await repo.create(valid_book)
         await repo.find_by_id(valid_book.id)
 
         assert inner.find_by_id.call_count == 2
-        assert inner.save.call_count == 1
+        assert inner.create.call_count == 1
+
+    async def test_update_invalidates_cache(self, valid_book: Book):
+        inner = AsyncMock(spec=BookRepository)
+        inner.find_by_id.return_value = valid_book
+        repo = CachedBookRepository(inner, InMemoryCache(100))
+
+        await repo.find_by_id(valid_book.id)
+        await repo.update(valid_book)
+        await repo.find_by_id(valid_book.id)
+
+        assert inner.find_by_id.call_count == 2
+        assert inner.update.call_count == 1
 
     async def test_delete_invalidates_cache(self, valid_book: Book):
         inner = AsyncMock(spec=BookRepository)

@@ -7,7 +7,12 @@ class InMemoryMemberRepository:
     def __init__(self):
         self._member_db: dict[UUID, Member] = {}
 
-    async def save(self, member: Member) -> None:
+    async def create(self, member: Member) -> None:
+        self._member_db[member.id] = member
+
+    async def update(self, member: Member) -> None:
+        if member.id not in self._member_db:
+            raise MemberNotFound(f"Member {member.id} not found")
         self._member_db[member.id] = member
 
     async def find_by_id(self, member_id: UUID) -> Member | None:

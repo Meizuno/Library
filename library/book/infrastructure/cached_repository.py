@@ -33,8 +33,12 @@ class CachedBookRepository:
         book.id = UUID(data["id"])
         return book
 
-    async def save(self, book: Book) -> None:
-        await self._inner_repo.save(book)
+    async def create(self, book: Book) -> None:
+        await self._inner_repo.create(book)
+        await self._cache.delete(self._data_key(book.id))
+
+    async def update(self, book: Book) -> None:
+        await self._inner_repo.update(book)
         await self._cache.delete(self._data_key(book.id))
 
     async def find_by_id(self, book_id: UUID) -> Book | None:

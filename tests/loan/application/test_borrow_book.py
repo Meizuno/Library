@@ -134,7 +134,7 @@ class TestBorrowBookUseCase:
             BorrowBookCommand(book_id=valid_book.id, member_id=valid_member.id)
         )
         first_loan.mark_returned(now + timedelta(days=1))
-        await loan_repo.save(first_loan)
+        await loan_repo.update(first_loan)
 
         second_loan = await use_case.execute(
             BorrowBookCommand(book_id=valid_book.id, member_id=valid_member.id)

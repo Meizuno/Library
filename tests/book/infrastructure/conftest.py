@@ -46,5 +46,5 @@ async def book_repo_with_book(
     empty_book_repo: BookRepository, valid_book: Book
 ) -> BookRepository:
     """Repository з одним попередньо збереженим valid_book."""
-    await empty_book_repo.save(valid_book)
+    await empty_book_repo.create(valid_book)
     return empty_book_repo

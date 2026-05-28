@@ -7,7 +7,12 @@ class InMemoryBookRepository:
     def __init__(self):
         self._book_db: dict[UUID, Book] = {}
 
-    async def save(self, book: Book) -> None:
+    async def create(self, book: Book) -> None:
+        self._book_db[book.id] = book
+
+    async def update(self, book: Book) -> None:
+        if book.id not in self._book_db:
+            raise BookNotFound(f"Book {book.id} not found")
         self._book_db[book.id] = book
 
     async def find_by_id(self, book_id: UUID) -> Book | None:

@@ -15,5 +15,5 @@ class AddMemberUseCase:
             )
 
         member = Member(name=command.name, email=email)
-        await self._member_repo.save(member)
+        await self._member_repo.create(member)
         return member

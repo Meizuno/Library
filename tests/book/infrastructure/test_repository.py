@@ -16,7 +16,8 @@ from library.shared.infrastructure.cache import RedisCache
 class TestProtocolSatisfaction:
     def test_in_memory_book_repo_satisfies_protocol(self):
         repo: BookRepository = InMemoryBookRepository()
-        assert hasattr(repo, "save")
+        assert hasattr(repo, "create")
+        assert hasattr(repo, "update")
         assert hasattr(repo, "find_by_id")
         assert hasattr(repo, "find_by_isbn")
         assert hasattr(repo, "list_all")
@@ -26,7 +27,8 @@ class TestProtocolSatisfaction:
         repo: BookRepository = CachedBookRepository(
             sql_book_repo, RedisCache(FakeAsyncRedis(), 300)
         )
-        assert hasattr(repo, "save")
+        assert hasattr(repo, "create")
+        assert hasattr(repo, "update")
         assert hasattr(repo, "find_by_id")
         assert hasattr(repo, "find_by_isbn")
         assert hasattr(repo, "list_all")
@@ -34,7 +36,8 @@ class TestProtocolSatisfaction:
 
     def test_sql_book_repo_satisfies_protocol(self):
         repo: BookRepository = SqlBookRepository(AsyncSession())
-        assert hasattr(repo, "save")
+        assert hasattr(repo, "create")
+        assert hasattr(repo, "update")
         assert hasattr(repo, "find_by_id")
         assert hasattr(repo, "find_by_isbn")
         assert hasattr(repo, "list_all")
@@ -45,11 +48,10 @@ class TestBookRepository:
     async def test_get_list_without_book(self, empty_book_repo: BookRepository):
         assert await empty_book_repo.list_all() == []
 
-    async def test_save_book(
+    async def test_create_book(
         self, empty_book_repo: BookRepository, valid_book: Book
     ):
-        await empty_book_repo.save(valid_book)
-        await empty_book_repo.list_all()
+        await empty_book_repo.create(valid_book)
         assert await empty_book_repo.find_by_id(valid_book.id) == valid_book
 
     async def test_read_unsaved_book(self, empty_book_repo: BookRepository):
@@ -79,9 +81,15 @@ class TestBookRepository:
         self, book_repo_with_book: BookRepository, valid_book: Book
     ):
         valid_book.title = "Updated title"
-        await book_repo_with_book.save(valid_book)
+        await book_repo_with_book.update(valid_book)
         saved_book = await book_repo_with_book.find_by_id(valid_book.id)
         assert saved_book.title == "Updated title"
+
+    async def test_update_unsaved_book_raises(
+        self, empty_book_repo: BookRepository, valid_book: Book
+    ):
+        with pytest.raises(BookNotFound):
+            await empty_book_repo.update(valid_book)
 
     async def test_delete_saved_book(
         self, book_repo_with_book: BookRepository, valid_book: Book

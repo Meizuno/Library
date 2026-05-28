@@ -91,7 +91,7 @@ def loan_repo() -> LoanRepository:
 async def book_repo_with_book(
     book_repo: BookRepository, valid_book: Book
 ) -> BookRepository:
-    await book_repo.save(valid_book)
+    await book_repo.create(valid_book)
     return book_repo
 
 
@@ -99,7 +99,7 @@ async def book_repo_with_book(
 async def member_repo_with_member(
     member_repo: MemberRepository, valid_member: Member
 ) -> MemberRepository:
-    await member_repo.save(valid_member)
+    await member_repo.create(valid_member)
     return member_repo
 
 

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select, insert, update, delete
+from sqlalchemy import delete, insert, select, update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from library.member.domain import Email, Member, MemberNotFound
@@ -19,26 +19,26 @@ class SqlMemberRepository:
         member.id = row.id
         return member
 
-    async def save(self, member: Member) -> None:
-        stmt = select(members_table.c.id).where(members_table.c.id == member.id)
-        existing = await self._session.execute(stmt)
-        if existing.scalar_one_or_none() is not None:
-            stmt = (
-                update(members_table)
-                .where(members_table.c.id == member.id)
-                .values(
-                    name=member.name,
-                    email=member.email.value,
-                )
-            )
-        else:
-            stmt = insert(members_table).values(
-                id=member.id,
+    async def create(self, member: Member) -> None:
+        stmt = insert(members_table).values(
+            id=member.id,
+            name=member.name,
+            email=member.email.value,
+        )
+        await self._session.execute(stmt)
+
+    async def update(self, member: Member) -> None:
+        stmt = (
+            sql_update(members_table)
+            .where(members_table.c.id == member.id)
+            .values(
                 name=member.name,
                 email=member.email.value,
             )
-
-        await self._session.execute(stmt)
+        )
+        result = await self._session.execute(stmt)
+        if result.rowcount == 0:
+            raise MemberNotFound(f"Member {member.id} not found")
 
     async def find_by_id(self, member_id: UUID) -> Member | None:
         stmt = select(members_table).where(members_table.c.id == member_id)

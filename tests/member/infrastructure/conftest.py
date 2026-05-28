@@ -47,5 +47,5 @@ async def member_repo_with_member(
     valid_member: Member,
 ) -> MemberRepository:
     """Repository з одним попередньо збереженим valid_member."""
-    await empty_member_repo.save(valid_member)
+    await empty_member_repo.create(valid_member)
     return empty_member_repo

@@ -20,7 +20,7 @@ async def loan_repo_with_active_loan(
         loaned_at=loaned_at,
         due_at=loaned_at + timedelta(days=14),
     )
-    await loan_repo.save(loan)
+    await loan_repo.create(loan)
     return loan_repo, loan
 
 

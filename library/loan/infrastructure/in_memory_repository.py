@@ -7,7 +7,12 @@ class InMemoryLoanRepository:
     def __init__(self):
         self._loan_db: dict[UUID, Loan] = {}
 
-    async def save(self, loan: Loan) -> None:
+    async def create(self, loan: Loan) -> None:
+        self._loan_db[loan.id] = loan
+
+    async def update(self, loan: Loan) -> None:
+        if loan.id not in self._loan_db:
+            raise LoanNotFound(f"Loan {loan.id} not found")
         self._loan_db[loan.id] = loan
 
     async def find_by_id(self, loan_id: UUID) -> Loan | None:

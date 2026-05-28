@@ -30,17 +30,29 @@ class TestCachedMemberRepository:
 
         assert inner.find_by_id.call_count == 2
 
-    async def test_save_invalidates_cache(self, valid_member: Member):
+    async def test_create_invalidates_cache(self, valid_member: Member):
         inner = AsyncMock(spec=MemberRepository)
         inner.find_by_id.return_value = valid_member
         repo = CachedMemberRepository(inner, InMemoryCache(100))
 
         await repo.find_by_id(valid_member.id)
-        await repo.save(valid_member)
+        await repo.create(valid_member)
         await repo.find_by_id(valid_member.id)
 
         assert inner.find_by_id.call_count == 2
-        assert inner.save.call_count == 1
+        assert inner.create.call_count == 1
+
+    async def test_update_invalidates_cache(self, valid_member: Member):
+        inner = AsyncMock(spec=MemberRepository)
+        inner.find_by_id.return_value = valid_member
+        repo = CachedMemberRepository(inner, InMemoryCache(100))
+
+        await repo.find_by_id(valid_member.id)
+        await repo.update(valid_member)
+        await repo.find_by_id(valid_member.id)
+
+        assert inner.find_by_id.call_count == 2
+        assert inner.update.call_count == 1
 
     async def test_delete_invalidates_cache(self, valid_member: Member):
         inner = AsyncMock(spec=MemberRepository)

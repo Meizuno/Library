@@ -34,5 +34,5 @@ async def loan_repo_with_loan(
     empty_loan_repo: LoanRepository, valid_loan: Loan
 ) -> LoanRepository:
     """Repository з одним попередньо збереженим valid_loan."""
-    await empty_loan_repo.save(valid_loan)
+    await empty_loan_repo.create(valid_loan)
     return empty_loan_repo

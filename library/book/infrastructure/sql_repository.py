@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select, insert, update, delete
+from sqlalchemy import delete, insert, select, update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from library.book.domain import Book, ISBN, BookNotFound
@@ -20,28 +20,28 @@ class SqlBookRepository:
         book.id = row.id
         return book
 
-    async def save(self, book: Book) -> None:
-        stmt = select(books_table.c.id).where(books_table.c.id == book.id)
-        existing = await self._session.execute(stmt)
-        if existing.scalar_one_or_none() is not None:
-            stmt = (
-                update(books_table)
-                .where(books_table.c.id == book.id)
-                .values(
-                    title=book.title,
-                    author=book.author,
-                    isbn=book.isbn.value,
-                )
-            )
-        else:
-            stmt = insert(books_table).values(
-                id=book.id,
+    async def create(self, book: Book) -> None:
+        stmt = insert(books_table).values(
+            id=book.id,
+            title=book.title,
+            author=book.author,
+            isbn=book.isbn.value,
+        )
+        await self._session.execute(stmt)
+
+    async def update(self, book: Book) -> None:
+        stmt = (
+            sql_update(books_table)
+            .where(books_table.c.id == book.id)
+            .values(
                 title=book.title,
                 author=book.author,
                 isbn=book.isbn.value,
             )
-
-        await self._session.execute(stmt)
+        )
+        result = await self._session.execute(stmt)
+        if result.rowcount == 0:
+            raise BookNotFound(f"Book {book.id} not found")
 
     async def find_by_id(self, book_id: UUID) -> Book | None:
         stmt = select(books_table).where(books_table.c.id == book_id)
