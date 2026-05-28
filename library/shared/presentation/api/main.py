@@ -5,6 +5,13 @@ from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from library.auth.domain import (
+    InvalidCredentials,
+    RefreshTokenExpired,
+    RefreshTokenInvalid,
+    RefreshTokenRevoked,
+)
+from library.auth.presentation.api.router import router as auth_router
 from library.book.application import BookAlreadyExists
 from library.book.domain import BookNotAvailable, BookNotFound
 from library.book.presentation.api.router import router as book_router
@@ -41,6 +48,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.middleware("http")(request_logging_middleware)
+app.include_router(auth_router)
 app.include_router(book_router)
 app.include_router(member_router)
 app.include_router(loan_router)
@@ -81,6 +89,26 @@ async def book_not_available_handler(_: Request, exc: BookNotAvailable):
 @app.exception_handler(LoanNotFound)
 async def loan_not_found_handler(_: Request, exc: LoanNotFound):
     return JSONResponse(status_code=404, content={"message": str(exc)})
+
+
+@app.exception_handler(InvalidCredentials)
+async def invalid_credentials_handler(_: Request, exc: InvalidCredentials):
+    return JSONResponse(status_code=401, content={"message": str(exc)})
+
+
+@app.exception_handler(RefreshTokenInvalid)
+async def refresh_token_invalid_handler(_: Request, exc: RefreshTokenInvalid):
+    return JSONResponse(status_code=401, content={"message": str(exc)})
+
+
+@app.exception_handler(RefreshTokenExpired)
+async def refresh_token_expired_handler(_: Request, exc: RefreshTokenExpired):
+    return JSONResponse(status_code=401, content={"message": str(exc)})
+
+
+@app.exception_handler(RefreshTokenRevoked)
+async def refresh_token_revoked_handler(_: Request, exc: RefreshTokenRevoked):
+    return JSONResponse(status_code=401, content={"message": str(exc)})
 
 
 @app.get("/health")

@@ -11,6 +11,8 @@ dependencies = [
     "redis>=7.4.0",
     "pydantic-settings>=2.14.1",
     "structlog>=25.5.0",
+    "pyjwt>=2.10.0",
+    "passlib[argon2]>=1.7.4",
 ]
 
 [project.optional-dependencies]

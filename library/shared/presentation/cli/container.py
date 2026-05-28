@@ -14,9 +14,13 @@ from library.member.infrastructure import (
     CachedMemberRepository,
     SqlMemberRepository,
 )
-from library.shared.application import Clock
+from library.shared.application import Clock, PasswordHasher
 from library.shared.config import Settings
-from library.shared.infrastructure import SystemClock, metadata
+from library.shared.infrastructure import (
+    Argon2PasswordHasher,
+    SystemClock,
+    metadata,
+)
 from library.shared.infrastructure.cache import RedisCache
 
 
@@ -28,6 +32,7 @@ class CliContext:
     members: MemberRepository
     loans: LoanRepository
     clock: Clock
+    hasher: PasswordHasher
 
 
 @asynccontextmanager
@@ -54,6 +59,7 @@ async def cli_context() -> AsyncIterator[CliContext]:
                 ),
                 loans=SqlLoanRepository(session),
                 clock=SystemClock(),
+                hasher=Argon2PasswordHasher(),
             )
             await session.commit()
         except Exception:

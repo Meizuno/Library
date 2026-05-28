@@ -5,9 +5,9 @@ from fastapi import Depends, Request
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from library.shared.application import Clock
+from library.shared.application import Clock, PasswordHasher
 from library.shared.config import Settings
-from library.shared.infrastructure import SystemClock
+from library.shared.infrastructure import Argon2PasswordHasher, SystemClock
 from library.shared.infrastructure.cache import Cache, RedisCache
 
 
@@ -39,3 +39,8 @@ def get_cache(
 
 def get_clock() -> Clock:
     return SystemClock()
+
+
+@lru_cache
+def get_password_hasher() -> PasswordHasher:
+    return Argon2PasswordHasher()
