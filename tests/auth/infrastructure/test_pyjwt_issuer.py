@@ -13,6 +13,10 @@ _OTHER_SECRET = "another-test-secret-key-with-32-plus-bytes-padding"
 
 
 class TestPyJWTTokenIssuer:
+    """Auth's TokenIssuer is now scoped to access + refresh tokens only.
+    Verification tokens live in member.infrastructure.PyJWTVerificationTokenIssuer
+    (see tests/member/infrastructure/test_pyjwt_verification_token_issuer.py)."""
+
     def test_round_trip_access_token(self):
         issuer = PyJWTTokenIssuer(secret_key=_SECRET)
         member_id = uuid4()

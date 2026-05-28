@@ -5,18 +5,21 @@ from library.auth.application import (
     LoginCommand,
     LoginUseCase,
 )
-from library.auth.domain import RefreshTokenRepository, TokenIssuer
+from library.auth.domain import (
+    CredentialVerifier,
+    RefreshTokenRepository,
+    TokenIssuer,
+)
 from library.member.domain import Member, MemberRepository
-from library.shared.application import Clock, PasswordHasher
+from library.shared.application import Clock
 
 
 def _make_use_case(
-    members, tokens, hasher, issuer, clock
+    credentials, tokens, issuer, clock
 ) -> LoginUseCase:
     return LoginUseCase(
-        members=members,
+        credentials=credentials,
         tokens=tokens,
-        hasher=hasher,
         issuer=issuer,
         clock=clock,
         refresh_token_ttl_days=30,
@@ -26,17 +29,17 @@ def _make_use_case(
 class TestLoginUseCase:
     async def test_login_success_returns_token_pair(
         self,
+        # seeds the member that the CredentialVerifier finds
         member_repo_with_member: MemberRepository,
+        credential_verifier: CredentialVerifier,
         refresh_token_repo: RefreshTokenRepository,
-        password_hasher: PasswordHasher,
         token_issuer: TokenIssuer,
         clock: Clock,
         valid_member: Member,
     ):
         use_case = _make_use_case(
-            member_repo_with_member,
+            credential_verifier,
             refresh_token_repo,
-            password_hasher,
             token_issuer,
             clock,
         )
@@ -54,17 +57,16 @@ class TestLoginUseCase:
 
     async def test_login_persists_hashed_refresh_token(
         self,
-        member_repo_with_member: MemberRepository,
+        member_repo_with_member: MemberRepository,  # noqa: ARG002
+        credential_verifier: CredentialVerifier,
         refresh_token_repo: RefreshTokenRepository,
-        password_hasher: PasswordHasher,
         token_issuer: TokenIssuer,
         clock: Clock,
         valid_member: Member,
     ):
         use_case = _make_use_case(
-            member_repo_with_member,
+            credential_verifier,
             refresh_token_repo,
-            password_hasher,
             token_issuer,
             clock,
         )
@@ -82,17 +84,16 @@ class TestLoginUseCase:
 
     async def test_login_wrong_password_raises(
         self,
-        member_repo_with_member: MemberRepository,
+        member_repo_with_member: MemberRepository,  # noqa: ARG002
+        credential_verifier: CredentialVerifier,
         refresh_token_repo: RefreshTokenRepository,
-        password_hasher: PasswordHasher,
         token_issuer: TokenIssuer,
         clock: Clock,
         valid_member: Member,
     ):
         use_case = _make_use_case(
-            member_repo_with_member,
+            credential_verifier,
             refresh_token_repo,
-            password_hasher,
             token_issuer,
             clock,
         )
@@ -106,16 +107,14 @@ class TestLoginUseCase:
 
     async def test_login_unknown_email_raises(
         self,
-        member_repo: MemberRepository,
+        credential_verifier: CredentialVerifier,
         refresh_token_repo: RefreshTokenRepository,
-        password_hasher: PasswordHasher,
         token_issuer: TokenIssuer,
         clock: Clock,
     ):
         use_case = _make_use_case(
-            member_repo,
+            credential_verifier,
             refresh_token_repo,
-            password_hasher,
             token_issuer,
             clock,
         )
@@ -127,16 +126,14 @@ class TestLoginUseCase:
 
     async def test_login_invalid_email_format_raises(
         self,
-        member_repo: MemberRepository,
+        credential_verifier: CredentialVerifier,
         refresh_token_repo: RefreshTokenRepository,
-        password_hasher: PasswordHasher,
         token_issuer: TokenIssuer,
         clock: Clock,
     ):
         use_case = _make_use_case(
-            member_repo,
+            credential_verifier,
             refresh_token_repo,
-            password_hasher,
             token_issuer,
             clock,
         )

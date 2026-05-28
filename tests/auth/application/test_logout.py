@@ -4,18 +4,21 @@ from library.auth.application import (
     LogoutCommand,
     LogoutUseCase,
 )
-from library.auth.domain import RefreshTokenRepository, TokenIssuer
+from library.auth.domain import (
+    CredentialVerifier,
+    RefreshTokenRepository,
+    TokenIssuer,
+)
 from library.member.domain import Member, MemberRepository
-from library.shared.application import Clock, PasswordHasher
+from library.shared.application import Clock
 
 
 async def _login_and_get_token(
-    members, tokens, hasher, issuer, clock, valid_member: Member
+    credentials, tokens, issuer, clock, valid_member: Member
 ):
     login_uc = LoginUseCase(
-        members=members,
+        credentials=credentials,
         tokens=tokens,
-        hasher=hasher,
         issuer=issuer,
         clock=clock,
         refresh_token_ttl_days=30,
@@ -29,17 +32,16 @@ async def _login_and_get_token(
 class TestLogoutUseCase:
     async def test_logout_revokes_refresh_token(
         self,
-        member_repo_with_member: MemberRepository,
+        member_repo_with_member: MemberRepository,  # noqa: ARG002 — seeds member
+        credential_verifier: CredentialVerifier,
         refresh_token_repo: RefreshTokenRepository,
-        password_hasher: PasswordHasher,
         token_issuer: TokenIssuer,
         clock: Clock,
         valid_member: Member,
     ):
         refresh = await _login_and_get_token(
-            member_repo_with_member,
+            credential_verifier,
             refresh_token_repo,
-            password_hasher,
             token_issuer,
             clock,
             valid_member,
@@ -70,17 +72,16 @@ class TestLogoutUseCase:
 
     async def test_logout_is_idempotent(
         self,
-        member_repo_with_member: MemberRepository,
+        member_repo_with_member: MemberRepository,  # noqa: ARG002
+        credential_verifier: CredentialVerifier,
         refresh_token_repo: RefreshTokenRepository,
-        password_hasher: PasswordHasher,
         token_issuer: TokenIssuer,
         clock: Clock,
         valid_member: Member,
     ):
         refresh = await _login_and_get_token(
-            member_repo_with_member,
+            credential_verifier,
             refresh_token_repo,
-            password_hasher,
             token_issuer,
             clock,
             valid_member,

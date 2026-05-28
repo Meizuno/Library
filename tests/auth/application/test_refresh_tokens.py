@@ -10,6 +10,7 @@ from library.auth.application import (
     RefreshTokensUseCase,
 )
 from library.auth.domain import (
+    CredentialVerifier,
     RefreshToken,
     RefreshTokenExpired,
     RefreshTokenInvalid,
@@ -18,17 +19,16 @@ from library.auth.domain import (
     TokenIssuer,
 )
 from library.member.domain import Member, MemberRepository
-from library.shared.application import Clock, PasswordHasher
+from library.shared.application import Clock
 from tests.conftest import FakeClock
 
 
 async def _login(
-    members, tokens, hasher, issuer, clock, valid_member: Member
+    credentials, tokens, issuer, clock, valid_member: Member
 ):
     login_uc = LoginUseCase(
-        members=members,
+        credentials=credentials,
         tokens=tokens,
-        hasher=hasher,
         issuer=issuer,
         clock=clock,
         refresh_token_ttl_days=30,
@@ -41,17 +41,16 @@ async def _login(
 class TestRefreshTokensUseCase:
     async def test_refresh_returns_new_pair(
         self,
-        member_repo_with_member: MemberRepository,
+        member_repo_with_member: MemberRepository,  # noqa: ARG002 — seeds member
+        credential_verifier: CredentialVerifier,
         refresh_token_repo: RefreshTokenRepository,
-        password_hasher: PasswordHasher,
         token_issuer: TokenIssuer,
         clock: Clock,
         valid_member: Member,
     ):
         pair = await _login(
-            member_repo_with_member,
+            credential_verifier,
             refresh_token_repo,
-            password_hasher,
             token_issuer,
             clock,
             valid_member,
@@ -73,17 +72,16 @@ class TestRefreshTokensUseCase:
 
     async def test_refresh_revokes_old_refresh_token(
         self,
-        member_repo_with_member: MemberRepository,
+        member_repo_with_member: MemberRepository,  # noqa: ARG002
+        credential_verifier: CredentialVerifier,
         refresh_token_repo: RefreshTokenRepository,
-        password_hasher: PasswordHasher,
         token_issuer: TokenIssuer,
         clock: Clock,
         valid_member: Member,
     ):
         pair = await _login(
-            member_repo_with_member,
+            credential_verifier,
             refresh_token_repo,
-            password_hasher,
             token_issuer,
             clock,
             valid_member,

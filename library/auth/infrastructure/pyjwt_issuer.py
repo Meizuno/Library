@@ -9,12 +9,13 @@ from library.auth.domain import InvalidAccessToken
 
 
 class PyJWTTokenIssuer:
-    """Concrete TokenIssuer using PyJWT (HS256) for access tokens
-    and a cryptographically-random opaque string for refresh tokens.
+    """Concrete `TokenIssuer` for the auth slice: issues + verifies access
+    tokens (stateless JWTs) and generates + hashes refresh tokens (opaque
+    random strings hashed with SHA-256 before storage).
 
-    Access tokens are stateless: `sub` is the member_id, `exp` enforces TTL.
-    Refresh tokens are hashed (SHA-256) before storage; the raw value is
-    returned to the client and never persisted.
+    Verification tokens (e.g. for email confirmation) live in the member
+    slice's `PyJWTVerificationTokenIssuer` — this issuer is purely an auth
+    concern.
     """
 
     def __init__(
