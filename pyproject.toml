@@ -48,4 +48,6 @@ disable = [
     "too-many-arguments",
     "too-many-positional-arguments",
     "redefined-outer-name",  # pytest fixtures inherently look like shadowing
+    "unused-argument",       # pytest fixtures (e.g. cli_setup) used only for side effects
+    "duplicate-code",        # repeated test invocation patterns are intentional for clarity
 ]
