@@ -20,3 +20,7 @@ class RefreshTokenExpired(DomainError):
 
 class RefreshTokenRevoked(DomainError):
     pass
+
+
+class RefreshTokenNotFound(DomainError):
+    pass

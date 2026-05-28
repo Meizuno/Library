@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from library.auth.domain import RefreshToken
+from library.auth.domain import RefreshToken, RefreshTokenNotFound
 
 
 class InMemoryRefreshTokenRepository:
@@ -12,7 +12,7 @@ class InMemoryRefreshTokenRepository:
 
     async def update(self, token: RefreshToken) -> None:
         if token.id not in self._tokens:
-            raise KeyError(f"RefreshToken {token.id} not found")
+            raise RefreshTokenNotFound(f"RefreshToken {token.id} not found")
         self._tokens[token.id] = token
 
     async def find_by_hash(self, token_hash: str) -> RefreshToken | None:

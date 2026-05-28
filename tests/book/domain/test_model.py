@@ -104,3 +104,25 @@ class TestBook:
             title="X", author="Y", isbn=valid_isbn, description="Nice"
         )
         assert book.description == "Nice"
+
+    def test_validate_after_mutation_normalizes_and_passes(self, valid_isbn):
+        book = Book(title="T", author="A", isbn=valid_isbn)
+        book.title = "  New  "
+        book.author = "  Author  "
+        book.description = "  desc  "
+        book.validate()
+        assert book.title == "New"
+        assert book.author == "Author"
+        assert book.description == "desc"
+
+    def test_validate_after_mutation_rejects_empty_title(self, valid_isbn):
+        book = Book(title="T", author="A", isbn=valid_isbn)
+        book.title = "   "
+        with pytest.raises(ValueError, match="title cannot be empty"):
+            book.validate()
+
+    def test_validate_after_mutation_rejects_empty_author(self, valid_isbn):
+        book = Book(title="T", author="A", isbn=valid_isbn)
+        book.author = ""
+        with pytest.raises(ValueError, match="author cannot be empty"):
+            book.validate()

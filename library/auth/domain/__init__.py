@@ -3,6 +3,7 @@ from library.auth.domain.exceptions import (
     InvalidCredentials,
     RefreshTokenExpired,
     RefreshTokenInvalid,
+    RefreshTokenNotFound,
     RefreshTokenRevoked,
 )
 from library.auth.domain.model import RefreshToken
@@ -18,4 +19,5 @@ __all__ = [
     "RefreshTokenInvalid",
     "RefreshTokenExpired",
     "RefreshTokenRevoked",
+    "RefreshTokenNotFound",
 ]

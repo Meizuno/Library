@@ -14,7 +14,7 @@ class UpdateBookUseCase:
         book.title = command.title
         book.author = command.author
         book.description = command.description
-        book.__post_init__()
+        book.validate()
 
         await self._book_repo.update(book)
         return book

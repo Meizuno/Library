@@ -3,7 +3,7 @@ from uuid import UUID
 from sqlalchemy import insert, select, update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from library.auth.domain import RefreshToken
+from library.auth.domain import RefreshToken, RefreshTokenNotFound
 from library.auth.infrastructure.sql_table import refresh_tokens_table
 
 
@@ -44,7 +44,7 @@ class SqlRefreshTokenRepository:
         )
         result = await self._session.execute(stmt)
         if result.rowcount == 0:
-            raise KeyError(f"RefreshToken {token.id} not found")
+            raise RefreshTokenNotFound(f"RefreshToken {token.id} not found")
 
     async def find_by_hash(self, token_hash: str) -> RefreshToken | None:
         stmt = select(refresh_tokens_table).where(

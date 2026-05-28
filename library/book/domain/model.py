@@ -13,6 +13,10 @@ class Book:
     description: str = ""
 
     def __post_init__(self):
+        self.validate()
+
+    def validate(self) -> None:
+        """Normalize and validate invariants. Safe to call after mutation."""
         self.title = self.title.strip()
         self.author = self.author.strip()
         self.description = self.description.strip()
