@@ -10,10 +10,12 @@ class Book:
     title: str
     author: str
     isbn: ISBN
+    description: str = ""
 
     def __post_init__(self):
         self.title = self.title.strip()
         self.author = self.author.strip()
+        self.description = self.description.strip()
 
         if not self.title:
             raise ValueError("title cannot be empty")

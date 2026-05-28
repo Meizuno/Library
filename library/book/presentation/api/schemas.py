@@ -9,6 +9,7 @@ class BookResponse(BaseModel):
     title: str
     author: str
     isbn: str
+    description: str
 
     @classmethod
     def from_domain(cls, book: Book) -> "BookResponse":
@@ -17,6 +18,7 @@ class BookResponse(BaseModel):
             title=book.title,
             author=book.author,
             isbn=book.isbn.value,
+            description=book.description,
         )
 
 
@@ -24,3 +26,10 @@ class BookCreate(BaseModel):
     title: str
     author: str
     isbn: str
+    description: str = ""
+
+
+class BookUpdate(BaseModel):
+    title: str
+    author: str
+    description: str

@@ -6,6 +6,7 @@ from library.book.application import (
     DeleteBookUseCase,
     ListBooksUseCase,
     ReadBookUseCase,
+    UpdateBookUseCase,
 )
 from library.book.domain import BookRepository
 from library.book.infrastructure import CachedBookRepository, SqlBookRepository
@@ -42,3 +43,9 @@ def get_delete_book_use_case(
     book_repo: BookRepository = Depends(get_book_repo),
 ) -> DeleteBookUseCase:
     return DeleteBookUseCase(book_repo)
+
+
+def get_update_book_use_case(
+    book_repo: BookRepository = Depends(get_book_repo),
+) -> UpdateBookUseCase:
+    return UpdateBookUseCase(book_repo)

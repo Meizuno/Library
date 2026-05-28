@@ -85,3 +85,22 @@ class TestBook:
         book_2.id = shared_id
         assert hash(book_1) == hash(book_2)
         assert len({book_1, book_2}) == 1
+
+    def test_description_defaults_to_empty(self, valid_isbn):
+        book = Book(title="X", author="Y", isbn=valid_isbn)
+        assert book.description == ""
+
+    def test_description_is_stripped(self, valid_isbn):
+        book = Book(
+            title="X",
+            author="Y",
+            isbn=valid_isbn,
+            description="  a classic   ",
+        )
+        assert book.description == "a classic"
+
+    def test_description_can_be_provided(self, valid_isbn):
+        book = Book(
+            title="X", author="Y", isbn=valid_isbn, description="Nice"
+        )
+        assert book.description == "Nice"

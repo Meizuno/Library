@@ -8,9 +8,15 @@ from library.book.application import (
     DeleteBookUseCase,
     ListBooksUseCase,
     ReadBookUseCase,
+    UpdateBookCommand,
+    UpdateBookUseCase,
 )
 from library.book.presentation.api import dependencies
-from library.book.presentation.api.schemas import BookCreate, BookResponse
+from library.book.presentation.api.schemas import (
+    BookCreate,
+    BookResponse,
+    BookUpdate,
+)
 
 
 router = APIRouter(prefix="/books", tags=["books"])
@@ -35,7 +41,10 @@ async def create_book(
 ) -> BookResponse:
     book = await add_book_use_case.execute(
         AddBookCommand(
-            title=command.title, author=command.author, isbn=command.isbn
+            title=command.title,
+            author=command.author,
+            isbn=command.isbn,
+            description=command.description,
         )
     )
     return BookResponse.from_domain(book)
@@ -52,6 +61,25 @@ async def read_book(
     if book is None:
         raise HTTPException(status_code=404, detail=f"Book {book_id} not found")
 
+    return BookResponse.from_domain(book)
+
+
+@router.put("/{book_id}")
+async def update_book(
+    book_id: UUID,
+    command: BookUpdate,
+    update_book_use_case: UpdateBookUseCase = Depends(
+        dependencies.get_update_book_use_case
+    ),
+) -> BookResponse:
+    book = await update_book_use_case.execute(
+        UpdateBookCommand(
+            book_id=book_id,
+            title=command.title,
+            author=command.author,
+            description=command.description,
+        )
+    )
     return BookResponse.from_domain(book)
 
 

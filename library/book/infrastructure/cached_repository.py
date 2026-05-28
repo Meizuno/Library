@@ -22,13 +22,17 @@ class CachedBookRepository:
                 "title": book.title,
                 "author": book.author,
                 "isbn": book.isbn.value,
+                "description": book.description,
             }
         )
 
     def _json_to_book(self, raw: str) -> Book:
         data = json.loads(raw)
         book = Book(
-            title=data["title"], author=data["author"], isbn=ISBN(data["isbn"])
+            title=data["title"],
+            author=data["author"],
+            isbn=ISBN(data["isbn"]),
+            description=data.get("description", ""),
         )
         book.id = UUID(data["id"])
         return book

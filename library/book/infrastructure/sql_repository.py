@@ -16,6 +16,7 @@ class SqlBookRepository:
             title=row.title,
             author=row.author,
             isbn=ISBN(row.isbn),
+            description=row.description,
         )
         book.id = row.id
         return book
@@ -26,6 +27,7 @@ class SqlBookRepository:
             title=book.title,
             author=book.author,
             isbn=book.isbn.value,
+            description=book.description,
         )
         await self._session.execute(stmt)
 
@@ -37,6 +39,7 @@ class SqlBookRepository:
                 title=book.title,
                 author=book.author,
                 isbn=book.isbn.value,
+                description=book.description,
             )
         )
         result = await self._session.execute(stmt)

@@ -9,4 +9,5 @@ books_table = Table(
     Column("title", String, nullable=False),
     Column("author", String, nullable=False),
     Column("isbn", String, nullable=False, unique=True),
+    Column("description", String, nullable=False, server_default=""),
 )

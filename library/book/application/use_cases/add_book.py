@@ -14,6 +14,11 @@ class AddBookUseCase:
                 f"Book with ISBN {command.isbn} already exists"
             )
 
-        book = Book(title=command.title, author=command.author, isbn=isbn)
+        book = Book(
+            title=command.title,
+            author=command.author,
+            isbn=isbn,
+            description=command.description,
+        )
         await self._book_repo.create(book)
         return book

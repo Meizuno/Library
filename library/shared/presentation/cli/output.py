@@ -16,6 +16,7 @@ def print_book(book: Book) -> None:
     table.add_row("title", book.title)
     table.add_row("author", book.author)
     table.add_row("isbn", book.isbn.value)
+    table.add_row("description", book.description or "—")
     console.print(table)
 
 

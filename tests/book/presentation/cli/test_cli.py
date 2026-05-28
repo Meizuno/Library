@@ -88,6 +88,115 @@ def test_books_delete_missing_exits_with_error(runner: CliRunner, cli_setup):
     assert "Error" in result.output
 
 
+def test_books_add_with_description(runner: CliRunner, cli_setup):
+    result = runner.invoke(
+        app,
+        [
+            "books",
+            "add",
+            "--title",
+            "T",
+            "--author",
+            "A",
+            "--isbn",
+            "978-3-16-148410-0",
+            "--description",
+            "A nice book",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "A nice book" in result.output
+
+
+def test_books_update_existing(runner: CliRunner, cli_setup):
+    add_result = runner.invoke(
+        app,
+        [
+            "books",
+            "add",
+            "--title",
+            "Old",
+            "--author",
+            "Old A",
+            "--isbn",
+            "978-3-16-148410-0",
+        ],
+    )
+    assert add_result.exit_code == 0
+    book_id = add_result.output.split("Added book")[1].split()[0].strip()
+
+    update_result = runner.invoke(
+        app,
+        [
+            "books",
+            "update",
+            book_id,
+            "--title",
+            "New",
+            "--author",
+            "New A",
+            "--description",
+            "Brand new",
+        ],
+    )
+
+    assert update_result.exit_code == 0
+    assert "Updated book" in update_result.output
+    assert "New" in update_result.output
+    assert "Brand new" in update_result.output
+
+
+def test_books_update_missing_exits_with_error(runner: CliRunner, cli_setup):
+    result = runner.invoke(
+        app,
+        [
+            "books",
+            "update",
+            str(uuid4()),
+            "--title",
+            "T",
+            "--author",
+            "A",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "Error" in result.output
+
+
+def test_books_update_invalid_title_exits_with_error(
+    runner: CliRunner, cli_setup
+):
+    add_result = runner.invoke(
+        app,
+        [
+            "books",
+            "add",
+            "--title",
+            "T",
+            "--author",
+            "A",
+            "--isbn",
+            "978-3-16-148410-0",
+        ],
+    )
+    book_id = add_result.output.split("Added book")[1].split()[0].strip()
+
+    result = runner.invoke(
+        app,
+        [
+            "books",
+            "update",
+            book_id,
+            "--title",
+            "",
+            "--author",
+            "A",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "Error" in result.output
+
+
 def test_books_add_read_delete_roundtrip(runner: CliRunner, cli_setup):
     add_result = runner.invoke(
         app,
