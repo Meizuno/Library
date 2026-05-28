@@ -3,6 +3,7 @@ from library.auth.application.commands import (
     LogoutCommand,
     RefreshTokensCommand,
 )
+from library.auth.application.exceptions import InvalidCredentials
 from library.auth.application.token_pair import TokenPair
 from library.auth.application.use_cases import (
     LoginUseCase,
@@ -11,6 +12,7 @@ from library.auth.application.use_cases import (
 )
 
 __all__ = [
+    "InvalidCredentials",
     "LoginCommand",
     "LogoutCommand",
     "RefreshTokensCommand",

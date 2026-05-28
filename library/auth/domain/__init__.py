@@ -1,6 +1,5 @@
 from library.auth.domain.exceptions import (
     InvalidAccessToken,
-    InvalidCredentials,
     RefreshTokenExpired,
     RefreshTokenInvalid,
     RefreshTokenNotFound,
@@ -14,7 +13,6 @@ __all__ = [
     "RefreshToken",
     "RefreshTokenRepository",
     "TokenIssuer",
-    "InvalidCredentials",
     "InvalidAccessToken",
     "RefreshTokenInvalid",
     "RefreshTokenExpired",

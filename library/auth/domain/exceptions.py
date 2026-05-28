@@ -1,9 +1,4 @@
-from library.shared.application.exceptions import ApplicationError
 from library.shared.domain.exceptions import DomainError
-
-
-class InvalidCredentials(ApplicationError):
-    pass
 
 
 class InvalidAccessToken(DomainError):

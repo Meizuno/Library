@@ -1,9 +1,9 @@
 from datetime import timedelta
 
 from library.auth.application.commands import LoginCommand
+from library.auth.application.exceptions import InvalidCredentials
 from library.auth.application.token_pair import TokenPair
 from library.auth.domain import (
-    InvalidCredentials,
     RefreshToken,
     RefreshTokenRepository,
     TokenIssuer,
