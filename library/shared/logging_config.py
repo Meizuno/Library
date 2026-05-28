@@ -3,17 +3,17 @@ import sys
 
 import structlog
 
+from library.shared.config import LogLevel
+
 
 def configure_logging(
-    json_format: bool = False, log_level: str = "INFO"
+    json_format: bool = False, log_level: LogLevel = "INFO"
 ) -> None:
     """Configure structlog and bridge stdlib logging through the same pipeline.
 
     json_format=True emits one JSON object per line (production).
     json_format=False emits human-readable colored output (development).
     """
-    level = logging.getLevelName(log_level.upper())
-
     shared_processors: list = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_logger_name,
@@ -47,4 +47,7 @@ def configure_logging(
 
     root_logger = logging.getLogger()
     root_logger.handlers = [handler]
-    root_logger.setLevel(level)
+    # Logger.setLevel accepts the level name as a string directly; this avoids
+    # the deprecated `logging.getLevelName(str) -> int` lookup. Settings has
+    # already validated log_level is one of DEBUG/INFO/WARNING/ERROR/CRITICAL.
+    root_logger.setLevel(log_level)
