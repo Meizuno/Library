@@ -17,8 +17,8 @@ from library.book.domain import BookNotAvailable, BookNotFound
 from library.book.presentation.api.router import router as book_router
 from library.loan.domain import LoanNotFound
 from library.loan.presentation.api.router import router as loan_router
-from library.member.application import MemberAlreadyExists
-from library.member.domain import MemberNotFound
+from library.member.application import MemberAlreadyExists, MemberNotVerified
+from library.member.domain import InvalidVerificationToken, MemberNotFound
 from library.member.presentation.api.router import router as member_router
 from library.shared.infrastructure import metadata
 from library.shared.logging_config import configure_logging
@@ -109,6 +109,18 @@ async def refresh_token_expired_handler(_: Request, exc: RefreshTokenExpired):
 @app.exception_handler(RefreshTokenRevoked)
 async def refresh_token_revoked_handler(_: Request, exc: RefreshTokenRevoked):
     return JSONResponse(status_code=401, content={"message": str(exc)})
+
+
+@app.exception_handler(InvalidVerificationToken)
+async def invalid_verification_token_handler(
+    _: Request, exc: InvalidVerificationToken
+):
+    return JSONResponse(status_code=401, content={"message": str(exc)})
+
+
+@app.exception_handler(MemberNotVerified)
+async def member_not_verified_handler(_: Request, exc: MemberNotVerified):
+    return JSONResponse(status_code=403, content={"message": str(exc)})
 
 
 @app.get("/health")

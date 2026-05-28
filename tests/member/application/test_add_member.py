@@ -5,10 +5,28 @@ from library.member.application import (
     AddMemberUseCase,
     MemberAlreadyExists,
 )
-from library.member.domain import MemberRepository
+from library.member.domain import MemberRepository, VerificationTokenIssuer
 from library.shared.application import PasswordHasher
 
 from tests.conftest import FakeNotifier
+
+
+_APP_BASE_URL = "http://localhost:8000"
+
+
+def _make_use_case(
+    member_repo: MemberRepository,
+    password_hasher: PasswordHasher,
+    notifier: FakeNotifier,
+    verification_token_issuer: VerificationTokenIssuer,
+) -> AddMemberUseCase:
+    return AddMemberUseCase(
+        member_repo,
+        password_hasher,
+        notifier,
+        verification_token_issuer,
+        _APP_BASE_URL,
+    )
 
 
 class TestAddMemberUseCase:
@@ -18,21 +36,29 @@ class TestAddMemberUseCase:
         member_repo: MemberRepository,
         password_hasher: PasswordHasher,
         notifier: FakeNotifier,
+        verification_token_issuer: VerificationTokenIssuer,
     ):
-        use_case = AddMemberUseCase(member_repo, password_hasher, notifier)
+        use_case = _make_use_case(
+            member_repo, password_hasher, notifier, verification_token_issuer
+        )
         member = await use_case.execute(member_command)
         assert member == await member_repo.find_by_id(member.id)
         # Password should be hashed (FakePasswordHasher prefixes with 'hashed:')
         assert member.password_hash == "hashed:password"
+        # New members are not yet verified.
+        assert member.is_verified is False
 
-    async def test_add_member_sends_welcome_email(
+    async def test_add_member_welcome_email_contains_verification_link(
         self,
         member_command: AddMemberCommand,
         member_repo: MemberRepository,
         password_hasher: PasswordHasher,
         notifier: FakeNotifier,
+        verification_token_issuer: VerificationTokenIssuer,
     ):
-        use_case = AddMemberUseCase(member_repo, password_hasher, notifier)
+        use_case = _make_use_case(
+            member_repo, password_hasher, notifier, verification_token_issuer
+        )
         member = await use_case.execute(member_command)
 
         assert len(notifier.sent) == 1
@@ -41,14 +67,30 @@ class TestAddMemberUseCase:
         assert "Welcome" in welcome.notification.subject
         assert member.name in welcome.notification.body
 
+        # The body contains a clickable verification URL of the form
+        # `{app_base_url}/members/verify?token=<JWT>`. Extract it and
+        # confirm the token decodes back to this member's id.
+        body = welcome.notification.body
+        urls = [
+            word
+            for word in body.split()
+            if word.startswith(f"{_APP_BASE_URL}/members/verify?token=")
+        ]
+        assert len(urls) == 1
+        token = urls[0].split("token=", 1)[1]
+        assert verification_token_issuer.verify(token) == member.id
+
     async def test_add_member_duplicate_does_not_send_extra_email(
         self,
         member_command: AddMemberCommand,
         member_repo: MemberRepository,
         password_hasher: PasswordHasher,
         notifier: FakeNotifier,
+        verification_token_issuer: VerificationTokenIssuer,
     ):
-        use_case = AddMemberUseCase(member_repo, password_hasher, notifier)
+        use_case = _make_use_case(
+            member_repo, password_hasher, notifier, verification_token_issuer
+        )
         await use_case.execute(member_command)
 
         with pytest.raises(MemberAlreadyExists):
@@ -62,15 +104,17 @@ class TestAddMemberUseCase:
         member_repo: MemberRepository,
         password_hasher: PasswordHasher,
         notifier: FakeNotifier,
+        verification_token_issuer: VerificationTokenIssuer,
     ):
-        use_case = AddMemberUseCase(member_repo, password_hasher, notifier)
+        use_case = _make_use_case(
+            member_repo, password_hasher, notifier, verification_token_issuer
+        )
         with pytest.raises(ValueError):
             await use_case.execute(
                 AddMemberCommand(
                     name="", email="user@example.com", password="password"
                 )
             )
-        # Failed validation must not send a welcome email.
         assert notifier.sent == []
 
     async def test_add_member_non_valid_email(
@@ -78,8 +122,11 @@ class TestAddMemberUseCase:
         member_repo: MemberRepository,
         password_hasher: PasswordHasher,
         notifier: FakeNotifier,
+        verification_token_issuer: VerificationTokenIssuer,
     ):
-        use_case = AddMemberUseCase(member_repo, password_hasher, notifier)
+        use_case = _make_use_case(
+            member_repo, password_hasher, notifier, verification_token_issuer
+        )
         with pytest.raises(ValueError):
             await use_case.execute(
                 AddMemberCommand(
@@ -93,8 +140,11 @@ class TestAddMemberUseCase:
         member_repo: MemberRepository,
         password_hasher: PasswordHasher,
         notifier: FakeNotifier,
+        verification_token_issuer: VerificationTokenIssuer,
     ):
-        use_case = AddMemberUseCase(member_repo, password_hasher, notifier)
+        use_case = _make_use_case(
+            member_repo, password_hasher, notifier, verification_token_issuer
+        )
         with pytest.raises(ValueError, match="password must be at least"):
             await use_case.execute(
                 AddMemberCommand(

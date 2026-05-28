@@ -108,17 +108,24 @@ class TestMemberRepository:
     async def test_is_verified_round_trips(
         self,
         empty_member_repo: MemberRepository,
-        valid_member: Member,
+        valid_email: Email,
     ):
-        # Default false on create.
-        await empty_member_repo.create(valid_member)
-        saved = await empty_member_repo.find_by_id(valid_member.id)
+        # Build a fresh unverified member here (the conftest fixture is
+        # pre-verified by default, so we can't reuse it for this test).
+        unverified = Member(
+            name="Name",
+            email=valid_email,
+            password_hash="hashed:password",
+            is_verified=False,
+        )
+        await empty_member_repo.create(unverified)
+        saved = await empty_member_repo.find_by_id(unverified.id)
         assert saved.is_verified is False
 
         # Update flips it; persisted value comes back true.
-        valid_member.mark_verified()
-        await empty_member_repo.update(valid_member)
-        saved = await empty_member_repo.find_by_id(valid_member.id)
+        unverified.mark_verified()
+        await empty_member_repo.update(unverified)
+        saved = await empty_member_repo.find_by_id(unverified.id)
         assert saved.is_verified is True
 
     async def test_update_unsaved_member_raises(

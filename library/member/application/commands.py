@@ -6,3 +6,8 @@ class AddMemberCommand:
     name: str
     email: str
     password: str
+
+
+@dataclass(frozen=True)
+class VerifyMemberCommand:
+    token: str

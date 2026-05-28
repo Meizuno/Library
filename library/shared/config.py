@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     jwt_algorithm: JwtAlgorithm = "HS256"
     access_token_ttl_minutes: int = Field(default=15, gt=0)
     refresh_token_ttl_days: int = Field(default=30, gt=0)
+    verification_token_ttl_hours: int = Field(default=24, gt=0)
+
+    # Used to build verification URLs sent in welcome emails. The token is
+    # appended as `?token=...`; a frontend (or curl) is expected to consume
+    # the URL and POST the token to /members/verify.
+    app_base_url: str = "http://localhost:8000"
 
     # Email / SMTP. When `smtp_host` is None (typical dev), the EmailNotifier
     # logs the email instead of sending — no SMTP server required to run locally.

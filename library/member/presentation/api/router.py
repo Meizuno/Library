@@ -8,9 +8,15 @@ from library.member.application import (
     DeleteMemberUseCase,
     ListMembersUseCase,
     ReadMemberUseCase,
+    VerifyMemberCommand,
+    VerifyMemberUseCase,
 )
 from library.member.presentation.api import dependencies
-from library.member.presentation.api.schemas import MemberCreate, MemberResponse
+from library.member.presentation.api.schemas import (
+    MemberCreate,
+    MemberResponse,
+    MemberVerifyRequest,
+)
 
 
 router = APIRouter(prefix="/members", tags=["members"])
@@ -39,6 +45,19 @@ async def create_member(
             email=command.email,
             password=command.password,
         )
+    )
+    return MemberResponse.from_domain(member)
+
+
+@router.post("/verify")
+async def verify_member(
+    request: MemberVerifyRequest,
+    verify_member_use_case: VerifyMemberUseCase = Depends(
+        dependencies.get_verify_member_use_case
+    ),
+) -> MemberResponse:
+    member = await verify_member_use_case.execute(
+        VerifyMemberCommand(token=request.token)
     )
     return MemberResponse.from_domain(member)
 
