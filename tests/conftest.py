@@ -1,4 +1,16 @@
+# pylint: disable=wrong-import-position
+# Env vars must be in place before any library import that may construct
+# `Settings()` (which validates required fields at instantiation time).
 import os
+
+os.environ.setdefault(
+    "JWT_SECRET_KEY", "test-secret-key-must-be-at-least-32-bytes-long"
+)
+# DATABASE_URL / REDIS_URL are required by Settings() but tests override
+# get_session / get_redis_client / get_cache, so the values are never used.
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from types import SimpleNamespace
@@ -8,12 +20,6 @@ from uuid import uuid4
 import pytest
 from httpx import ASGITransport, AsyncClient
 from typer.testing import CliRunner
-
-os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-tests")
-# DATABASE_URL / REDIS_URL are required by Settings() but tests override
-# get_session / get_redis_client / get_cache, so the values are never used.
-os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
-os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
 from library.auth.domain import RefreshTokenRepository, TokenIssuer
 from library.auth.infrastructure import (
@@ -113,7 +119,7 @@ def password_hasher() -> PasswordHasher:
 @pytest.fixture
 def token_issuer() -> TokenIssuer:
     return PyJWTTokenIssuer(
-        secret_key="test-secret-key-for-tests",
+        secret_key="test-secret-key-must-be-at-least-32-bytes-long",
         algorithm="HS256",
         access_token_ttl_minutes=15,
     )

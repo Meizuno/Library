@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta
+from datetime import datetime
+from uuid import uuid4
 
 import pytest
 
@@ -18,6 +19,7 @@ from library.auth.domain import (
 )
 from library.member.domain import Member, MemberRepository
 from library.shared.application import Clock, PasswordHasher
+from tests.conftest import FakeClock
 
 
 async def _login(
@@ -125,12 +127,9 @@ class TestRefreshTokensUseCase:
         refresh_token_repo: RefreshTokenRepository,
         token_issuer: TokenIssuer,
     ):
-        # Seed an already-expired token directly
-        from tests.conftest import FakeClock
-
         raw = token_issuer.generate_refresh_token()
         record = RefreshToken(
-            member_id=__import__("uuid").uuid4(),
+            member_id=uuid4(),
             token_hash=token_issuer.hash_refresh_token(raw),
             expires_at=datetime(2026, 5, 1, 0, 0, 0),
         )
