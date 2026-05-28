@@ -33,6 +33,8 @@ def _create_member(runner: CliRunner) -> str:
             "Alice",
             "--email",
             "alice@example.com",
+            "--password",
+            "password",
         ],
     )
     assert result.exit_code == 0

@@ -2,6 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
+from library.auth.presentation.api.security import get_current_member
 from library.loan.application import (
     BorrowBookCommand,
     BorrowBookUseCase,
@@ -13,9 +14,14 @@ from library.loan.presentation.api.schemas import (
     BorrowBookCreate,
     LoanResponse,
 )
+from library.member.domain import Member
 
 
-router = APIRouter(prefix="/loans", tags=["loans"])
+router = APIRouter(
+    prefix="/loans",
+    tags=["loans"],
+    dependencies=[Depends(get_current_member)],
+)
 
 
 @router.post("", status_code=201)
@@ -24,6 +30,7 @@ async def borrow_book(
     borrow_book_use_case: BorrowBookUseCase = Depends(
         dependencies.get_borrow_book_use_case
     ),
+    _: Member = Depends(get_current_member),
 ) -> LoanResponse:
     loan = await borrow_book_use_case.execute(
         BorrowBookCommand(
@@ -39,6 +46,7 @@ async def return_book(
     return_book_use_case: ReturnBookUseCase = Depends(
         dependencies.get_return_book_use_case
     ),
+    _: Member = Depends(get_current_member),
 ) -> LoanResponse:
     loan = await return_book_use_case.execute(ReturnBookCommand(loan_id=loan_id))
     return LoanResponse.from_domain(loan)

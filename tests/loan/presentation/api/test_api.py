@@ -18,7 +18,12 @@ async def _create_book(client: AsyncClient) -> str:
 
 async def _create_member(client: AsyncClient) -> str:
     response = await client.post(
-        "/members", json={"name": "Name", "email": "user@example.com"}
+        "/members",
+        json={
+            "name": "Name",
+            "email": "user@example.com",
+            "password": "password",
+        },
     )
     return response.json()["id"]
 

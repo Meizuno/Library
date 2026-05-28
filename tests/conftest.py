@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from types import SimpleNamespace
@@ -8,6 +9,22 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from typer.testing import CliRunner
 
+os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-tests")
+# DATABASE_URL / REDIS_URL are required by Settings() but tests override
+# get_session / get_redis_client / get_cache, so the values are never used.
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+
+from library.auth.domain import RefreshTokenRepository, TokenIssuer
+from library.auth.infrastructure import (
+    InMemoryRefreshTokenRepository,
+    PyJWTTokenIssuer,
+)
+from library.auth.presentation.api.dependencies import (
+    get_refresh_token_repo,
+    get_token_issuer,
+)
+from library.auth.presentation.api.security import get_current_member
 from library.book.domain import ISBN, Book, BookRepository
 from library.book.infrastructure import InMemoryBookRepository
 from library.book.presentation.api.dependencies import get_book_repo
@@ -17,8 +34,11 @@ from library.loan.presentation.api.dependencies import get_loan_repo
 from library.member.domain import Email, Member, MemberRepository
 from library.member.infrastructure import InMemoryMemberRepository
 from library.member.presentation.api.dependencies import get_member_repo
-from library.shared.application import Clock
-from library.shared.presentation.api.dependencies import get_clock
+from library.shared.application import Clock, PasswordHasher
+from library.shared.presentation.api.dependencies import (
+    get_clock,
+    get_password_hasher,
+)
 from library.shared.presentation.api.main import app
 from library.shared.presentation.cli.container import CliContext
 
@@ -29,6 +49,17 @@ class FakeClock:
 
     def now(self) -> datetime:
         return self._now
+
+
+class FakePasswordHasher:
+    """Reversible fake — fast, no real crypto. Tests pass plain-text 'password'
+    and the resulting 'hashed:password' is what callers see as password_hash."""
+
+    def hash(self, password: str) -> str:
+        return f"hashed:{password}"
+
+    def verify(self, password: str, hashed: str) -> bool:
+        return hashed == f"hashed:{password}"
 
 
 @pytest.fixture
@@ -48,7 +79,9 @@ def valid_book(valid_isbn: ISBN) -> Book:
 
 @pytest.fixture
 def valid_member(valid_email: Email) -> Member:
-    return Member(name="Name", email=valid_email)
+    return Member(
+        name="Name", email=valid_email, password_hash="hashed:password"
+    )
 
 
 @pytest.fixture
@@ -70,6 +103,25 @@ def now() -> datetime:
 @pytest.fixture
 def clock(now: datetime) -> Clock:
     return FakeClock(now)
+
+
+@pytest.fixture
+def password_hasher() -> PasswordHasher:
+    return FakePasswordHasher()
+
+
+@pytest.fixture
+def token_issuer() -> TokenIssuer:
+    return PyJWTTokenIssuer(
+        secret_key="test-secret-key-for-tests",
+        algorithm="HS256",
+        access_token_ttl_minutes=15,
+    )
+
+
+@pytest.fixture
+def refresh_token_repo() -> RefreshTokenRepository:
+    return InMemoryRefreshTokenRepository()
 
 
 @pytest.fixture
@@ -109,11 +161,23 @@ async def client(
     member_repo: MemberRepository,
     loan_repo: LoanRepository,
     clock: Clock,
+    password_hasher: PasswordHasher,
+    token_issuer: TokenIssuer,
+    refresh_token_repo: RefreshTokenRepository,
+    valid_member: Member,
 ) -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides[get_book_repo] = lambda: book_repo
     app.dependency_overrides[get_member_repo] = lambda: member_repo
     app.dependency_overrides[get_loan_repo] = lambda: loan_repo
     app.dependency_overrides[get_clock] = lambda: clock
+    app.dependency_overrides[get_password_hasher] = lambda: password_hasher
+    app.dependency_overrides[get_token_issuer] = lambda: token_issuer
+    app.dependency_overrides[get_refresh_token_repo] = (
+        lambda: refresh_token_repo
+    )
+    # Default: /loans tests assume an authenticated caller. Individual tests
+    # can clear this override to exercise the 401 path.
+    app.dependency_overrides[get_current_member] = lambda: valid_member
     transport = ASGITransport(app=app)
     async with AsyncClient(
         transport=transport, base_url="http://test"
@@ -138,6 +202,7 @@ def cli_setup(monkeypatch) -> SimpleNamespace:
     member_repo = InMemoryMemberRepository()
     loan_repo = InMemoryLoanRepository()
     clock = FakeClock(datetime(2026, 5, 20, 10, 0, 0))
+    hasher = FakePasswordHasher()
 
     @asynccontextmanager
     async def fake_cli_context():
@@ -146,6 +211,7 @@ def cli_setup(monkeypatch) -> SimpleNamespace:
             members=member_repo,
             loans=loan_repo,
             clock=clock,
+            hasher=hasher,
         )
 
     monkeypatch.setattr(
@@ -163,4 +229,5 @@ def cli_setup(monkeypatch) -> SimpleNamespace:
         member_repo=member_repo,
         loan_repo=loan_repo,
         clock=clock,
+        hasher=hasher,
     )
