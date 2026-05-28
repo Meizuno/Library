@@ -33,7 +33,7 @@ dev = [
 ]
 
 [project.scripts]
-library = "library.cli.main:app"
+library = "library.shared.presentation.cli.main:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
