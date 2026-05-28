@@ -1,6 +1,9 @@
 from httpx import AsyncClient
 
-from library.auth.presentation.api.security import get_current_member
+from library.auth.presentation.api.security import (
+    get_current_member,
+    get_verified_member,
+)
 from library.shared.presentation.api.main import app
 
 
@@ -107,15 +110,22 @@ class TestAuthAPI:
         assert replay.status_code == 401
 
 
+def _clear_auth_overrides() -> None:
+    """Drop both auth-gate overrides so /loans/* uses real get_verified_member
+    (which in turn invokes the real get_current_member)."""
+    app.dependency_overrides.pop(get_current_member, None)
+    app.dependency_overrides.pop(get_verified_member, None)
+
+
 class TestProtectedLoanRoutes:
-    """The /loans/* endpoints require a valid bearer token. The default
-    `client` fixture auto-overrides get_current_member, so we clear that
-    override for these tests to exercise the real auth gate."""
+    """The /loans/* endpoints require a valid bearer token AND a verified
+    member. The default `client` fixture auto-overrides both checks; we
+    clear them here to exercise the real gate."""
 
     async def test_borrow_without_token_returns_401(
         self, client: AsyncClient
     ):
-        app.dependency_overrides.pop(get_current_member, None)
+        _clear_auth_overrides()
 
         response = await client.post(
             "/loans",
@@ -129,7 +139,7 @@ class TestProtectedLoanRoutes:
     async def test_borrow_with_invalid_token_returns_401(
         self, client: AsyncClient
     ):
-        app.dependency_overrides.pop(get_current_member, None)
+        _clear_auth_overrides()
 
         response = await client.post(
             "/loans",
@@ -144,9 +154,28 @@ class TestProtectedLoanRoutes:
     async def test_return_without_token_returns_401(
         self, client: AsyncClient
     ):
-        app.dependency_overrides.pop(get_current_member, None)
+        _clear_auth_overrides()
 
         response = await client.post(
             "/loans/00000000-0000-0000-0000-000000000001/return"
         )
         assert response.status_code == 401
+
+    async def test_borrow_with_unverified_member_returns_403(
+        self, client: AsyncClient, valid_member
+    ):
+        # An authenticated but unverified caller is rejected by the
+        # `get_verified_member` gate. We keep the `get_current_member`
+        # override (so auth succeeds) but drop the `get_verified_member`
+        # override and flip the member's is_verified flag to False.
+        valid_member.is_verified = False
+        app.dependency_overrides.pop(get_verified_member, None)
+
+        response = await client.post(
+            "/loans",
+            json={
+                "book_id": "00000000-0000-0000-0000-000000000001",
+                "member_id": "00000000-0000-0000-0000-000000000002",
+            },
+        )
+        assert response.status_code == 403

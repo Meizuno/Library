@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from library.auth.presentation.api.security import get_current_member
+from library.auth.presentation.api.security import get_verified_member
 from library.loan.application import (
     BorrowBookCommand,
     BorrowBookUseCase,
@@ -19,7 +19,9 @@ from library.loan.presentation.api.schemas import (
 router = APIRouter(
     prefix="/loans",
     tags=["loans"],
-    dependencies=[Depends(get_current_member)],
+    # /loans actions require BOTH a valid access token AND a verified
+    # member. Members must confirm their email before borrowing.
+    dependencies=[Depends(get_verified_member)],
 )
 
 
