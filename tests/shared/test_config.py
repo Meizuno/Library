@@ -112,7 +112,7 @@ class TestSettingsFailFast:
 
     @pytest.mark.parametrize(
         "level",
-        ["info", "verbose", "TRACE", "", "DEBUGG"],
+        ["info", "verbose", "TRACE", "", "WARN"],
     )
     def test_invalid_log_level_raises(self, level: str):
         with pytest.raises(ValidationError):
