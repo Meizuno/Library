@@ -21,9 +21,9 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
       - name: Install
-        run: pip install -e ".[dev,cli]"
-      - name: Run pytest
-        run: pytest
+        run: pip install -e ".[dev]"
+      - name: Run pytest (warnings are errors)
+        run: pytest -W error
 
   # ─────────────────────────────────────────────────────────────
   #  CODE QUALITY — static analysis & spelling
@@ -39,7 +39,7 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
       - name: Install
-        run: pip install -e ".[dev,cli]"
+        run: pip install -e ".[dev]"
       - name: Pylint
         run: pylint library tests
       - name: Codespell
@@ -59,7 +59,7 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
       - name: Install
-        run: pip install -e ".[dev,cli]"
+        run: pip install -e ".[dev]"
       - name: Bandit (code-level vulnerabilities)
         run: bandit -r library
       - name: pip-audit (CVE in dependencies)

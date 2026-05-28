@@ -11,16 +11,13 @@ os.environ.setdefault(
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
-from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from types import SimpleNamespace
 from typing import AsyncGenerator
 from uuid import uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from typer.testing import CliRunner
 
 from library.auth.domain import RefreshTokenRepository, TokenIssuer
 from library.auth.infrastructure import (
@@ -49,7 +46,6 @@ from library.shared.presentation.api.dependencies import (
     get_password_hasher,
 )
 from library.shared.presentation.api.main import app
-from library.shared.presentation.cli.container import CliContext
 
 
 class FakeClock:
@@ -223,53 +219,3 @@ async def client(
     ) as async_client:
         yield async_client
     app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def runner() -> CliRunner:
-    return CliRunner()
-
-
-@pytest.fixture
-def cli_setup(monkeypatch) -> SimpleNamespace:
-    """Replace `cli_context` in every command module with an in-memory one.
-
-    Each test gets fresh in-memory repos that persist across multiple
-    `runner.invoke` calls within the same test.
-    """
-    book_repo = InMemoryBookRepository()
-    member_repo = InMemoryMemberRepository()
-    loan_repo = InMemoryLoanRepository()
-    clock = FakeClock(datetime(2026, 5, 20, 10, 0, 0))
-    hasher = FakePasswordHasher()
-    notifier = FakeNotifier()
-
-    @asynccontextmanager
-    async def fake_cli_context():
-        yield CliContext(
-            books=book_repo,
-            members=member_repo,
-            loans=loan_repo,
-            clock=clock,
-            hasher=hasher,
-            notifier=notifier,
-        )
-
-    monkeypatch.setattr(
-        "library.book.presentation.cli.commands.cli_context", fake_cli_context
-    )
-    monkeypatch.setattr(
-        "library.member.presentation.cli.commands.cli_context", fake_cli_context
-    )
-    monkeypatch.setattr(
-        "library.loan.presentation.cli.commands.cli_context", fake_cli_context
-    )
-
-    return SimpleNamespace(
-        book_repo=book_repo,
-        member_repo=member_repo,
-        loan_repo=loan_repo,
-        clock=clock,
-        hasher=hasher,
-        notifier=notifier,
-    )

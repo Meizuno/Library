@@ -19,7 +19,6 @@ business logic, persistence, transport, and infrastructure can evolve independen
 - [Tech stack](#tech-stack)
 - [Getting started](#getting-started)
 - [HTTP API](#http-api)
-- [CLI](#cli)
 - [Docker](#docker)
 - [Architectural decisions worth highlighting](#architectural-decisions-worth-highlighting)
 - [What this project deliberately does not do](#what-this-project-deliberately-does-not-do)
@@ -33,7 +32,7 @@ The codebase is **sliced by bounded context** at the top level (`book/`, `member
 
 ```
                   ┌─────────────────────────────────────────────────┐
-                  │  presentation/  ── HTTP (FastAPI) + CLI (Typer) │
+                  │  presentation/  ── HTTP (FastAPI)               │
                   │     ↓                                           │
                   │  application/   ── use cases, commands,         │
                   │     ↓              app-level exceptions         │
@@ -60,7 +59,7 @@ imports `BookRepository`, `MemberRepository`, and a few exceptions from `book/` 
 
 [`shared/`](library/shared/) holds genuinely cross-cutting infrastructure (`Clock` port,
 cache adapters, shared SQL `MetaData`, config, structlog setup) and the composition root
-(FastAPI app, Typer CLI entry).
+(FastAPI app entry point).
 
 This is enforced not by tooling but by discipline + tests. Try violating it and
 contract tests start failing in unintuitive ways.
@@ -91,12 +90,10 @@ library/
 │   │   ├── sql_repository.py         # SqlBookRepository
 │   │   └── cached_repository.py      # CachedBookRepository (Decorator)
 │   └── presentation/
-│       ├── api/
-│       │   ├── schemas.py         # Pydantic DTOs (BookCreate, BookResponse)
-│       │   ├── dependencies.py    # get_book_repo, get_*_use_case
-│       │   └── router.py          # /books endpoints
-│       └── cli/
-│           └── commands.py        # typer `books` subcommands
+│       └── api/
+│           ├── schemas.py         # Pydantic DTOs (BookCreate, BookResponse)
+│           ├── dependencies.py    # get_book_repo, get_*_use_case
+│           └── router.py          # /books endpoints
 │
 ├── member/                        # Same shape: Member, Email, MemberRepository, …
 ├── loan/                          # Same shape: Loan, LoanRepository,
@@ -119,18 +116,14 @@ library/
     │       ├── redis.py           # RedisCache with graceful degradation
     │       └── in_memory.py       # InMemoryCache with LRU eviction
     └── presentation/              # Composition root
-        ├── api/
-        │   ├── main.py            # FastAPI app, lifespan, exception handlers
-        │   ├── dependencies.py    # get_settings, get_session, get_redis, get_cache, get_clock
-        │   └── middleware.py      # request_logging_middleware (structlog)
-        └── cli/
-            ├── main.py            # Typer app, mounts each feature's commands
-            ├── container.py       # cli_context() — engine + session + repos
-            └── output.py          # Rich helpers (tables, success/error)
+        └── api/
+            ├── main.py            # FastAPI app, lifespan, exception handlers
+            ├── dependencies.py    # get_settings, get_session, get_redis, get_cache, get_clock
+            └── middleware.py      # request_logging_middleware (structlog)
 
 tests/                             # Mirrors the source tree 1:1
-├── conftest.py                    # Cross-feature fixtures (valid_*, clock, client, cli_setup)
-├── book/{domain, application, infrastructure, presentation/{api,cli}}/
+├── conftest.py                    # Cross-feature fixtures (valid_*, clock, client)
+├── book/{domain, application, infrastructure, presentation/api/}
 ├── member/{…}
 ├── loan/{…}
 └── shared/infrastructure/{test_clock.py, cache/test_in_memory.py}
@@ -233,7 +226,6 @@ Logs render as colorized console output in development, JSON in production.
 | [In-memory cache](tests/shared/infrastructure/cache/test_in_memory.py) | 11 | LRU eviction, move-to-end on access |
 | [Clock](tests/shared/infrastructure/test_clock.py) | 2 | SystemClock satisfies the Clock protocol |
 | [API end-to-end](tests/) | 18 | HTTP ↔ use case translation, exception → status mapping |
-| [CLI end-to-end](tests/) | 19 | Typer commands ↔ use cases, exit codes, error output |
 
 Each level tests one rung of abstraction; almost no duplication between levels.
 
@@ -243,7 +235,6 @@ Each level tests one rung of abstraction; almost no duplication between levels.
 
 - **Python 3.12+** (async/await throughout)
 - **FastAPI** — driving HTTP adapter
-- **Typer + Rich** — driving CLI adapter
 - **SQLAlchemy 2.x Core** (not ORM) — dialect-agnostic SQL
 - **asyncpg** / **aiosqlite** — async database drivers
 - **redis-py** (async) — cache adapter
@@ -271,7 +262,7 @@ python -m venv .venv
 .venv\Scripts\activate           # Windows
 # source .venv/bin/activate      # macOS / Linux
 
-pip install -e ".[dev,cli]"
+pip install -e ".[dev]"
 ```
 
 ### Configure
@@ -339,67 +330,6 @@ ValueError         → 422   # invalid VO / domain invariant
 
 Routers (one per feature, under [`<feature>/presentation/api/router.py`](library/book/presentation/api/router.py))
 never `try/except` — they let exceptions bubble up to the handlers.
-
----
-
-## CLI
-
-The same use cases are exposed through a second driving adapter — a Typer-based
-command-line interface. The CLI is **parallel** to the FastAPI adapter, not built
-on top of it; both talk directly to the application layer.
-
-Install the CLI extra:
-
-```sh
-pip install -e ".[cli]"
-```
-
-Then:
-
-```sh
-library --help                                              # show all commands
-library books list
-library books add --title "Title" --author "Author" --isbn "978-3-16-148410-0"
-library books read <book-id>
-library books delete <book-id>
-
-library members list
-library members add --name "Name" --email "user@example.com"
-library members read <member-id>
-library members delete <member-id>
-
-library loans borrow --book-id <id> --member-id <id>
-library loans return <loan-id>
-```
-
-### How it mirrors the API without duplicating logic
-
-Each feature owns its own [`presentation/cli/commands.py`](library/book/presentation/cli/commands.py)
-(thin Typer functions that resolve the container, build the use case, call `execute()`,
-print the result). The composition root in
-[`shared/presentation/cli/`](library/shared/presentation/cli/) supplies:
-
-- [`main.py`](library/shared/presentation/cli/main.py) — Typer app that mounts each feature's
-  subcommands (`books`, `members`, `loans`).
-- [`container.py`](library/shared/presentation/cli/container.py) — `cli_context()` async
-  context manager that opens engine + session + Redis, builds repositories for all three
-  features, commits on success, rolls back on exception. The CLI's equivalent of FastAPI's
-  per-request `get_session` dependency.
-- [`output.py`](library/shared/presentation/cli/output.py) — small Rich helpers for tables,
-  success messages, and error formatting on stderr.
-
-Domain, application, infrastructure — **zero changes** when the CLI was added.
-The CLI shares exactly the same use cases (`AddBookUseCase`, `BorrowBookUseCase`, …)
-that the HTTP routers consume.
-
-### Architectural takeaway
-
-Adding the CLI was the most direct possible demonstration of the
-**Driving Adapter** concept. The use cases never knew which protocol called them.
-Same `BorrowBookUseCase(books, members, loans, clock)` serves both `POST /loans`
-over HTTP and `library loans borrow --book-id …` on the shell. Replace Typer with
-gRPC, AMQP, a Discord bot — the substitution is local to
-`<feature>/presentation/<new-adapter>/` (plus a tiny composition root entry).
 
 ---
 
@@ -513,7 +443,7 @@ schemas, persistence concerns, or owners — not before.
 [`shared/`](library/shared/) holds only code that is **provably cross-cutting**:
 the `Clock` port (every use case that needs time), the `Cache` protocol (used by
 multiple features' cached repositories), shared SQL `MetaData` (so all tables register
-into one schema), the FastAPI composition root, the Typer composition root, config,
+into one schema), the FastAPI composition root, config,
 and logging. Domain models, repositories, and use cases all live in their feature
 folder. The rule is: if exactly one feature uses it, it belongs in that feature.
 
