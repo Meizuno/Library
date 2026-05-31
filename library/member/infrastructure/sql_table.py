@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, String, Table, Uuid
+from sqlalchemy import Boolean, Column, DateTime, String, Table, Uuid
 from sqlalchemy.sql.expression import false as sql_false
 
 from library.shared.infrastructure.sql_metadata import metadata
@@ -18,4 +18,8 @@ members_table = Table(
         nullable=False,
         server_default=sql_false(),
     ),
+    # Soft-delete marker. NULL = active row. Set to the server's
+    # current timestamp on `delete()`; reads filter rows where this
+    # is non-NULL so deleted members are invisible to use cases.
+    Column("deleted_at", DateTime, nullable=True),
 )
