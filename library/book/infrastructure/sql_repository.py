@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import func, insert, select, update as sql_update
+from sqlalchemy import func, insert, or_, select, update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from library.book.domain import Book, ISBN, BookNotFound
@@ -76,10 +76,18 @@ class SqlBookRepository:
         row = result.first()
         return self._row_to_book(row) if row else None
 
-    async def list_all(self) -> list[Book]:
-        stmt = select(books_table).where(
-            books_table.c.deleted_at.is_(None)
-        )
+    async def list_all(self, search: str | None = None) -> list[Book]:
+        stmt = select(books_table).where(books_table.c.deleted_at.is_(None))
+        needle = search.strip() if search else ""
+        if needle:
+            # `icontains(..., autoescape=True)` escapes %/_ in the input
+            # so user-supplied wildcards do not leak into the LIKE pattern.
+            stmt = stmt.where(
+                or_(
+                    books_table.c.title.icontains(needle, autoescape=True),
+                    books_table.c.author.icontains(needle, autoescape=True),
+                )
+            )
         result = await self._session.execute(stmt)
         rows = result.all()
         return [self._row_to_book(row) for row in rows]

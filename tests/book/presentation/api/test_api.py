@@ -125,3 +125,37 @@ class TestBooksAPI:
         book_id = created.json()["id"]
         response = await client.delete(f"/books/{book_id}")
         assert response.status_code == 204
+
+    async def test_list_books_with_search_filters_results(
+        self, client: AsyncClient
+    ):
+        # Seed two books — one matches a title search, one matches an author
+        # search, neither matches a third query.
+        await client.post(
+            "/books",
+            json={
+                "title": "Harry Potter",
+                "author": "J.K. Rowling",
+                "isbn": "978-3-16-148410-0",
+            },
+        )
+        await client.post(
+            "/books",
+            json={
+                "title": "The Hobbit",
+                "author": "J.R.R. Tolkien",
+                "isbn": "978-3-16-148411-0",
+            },
+        )
+
+        by_title = (await client.get("/books?search=potter")).json()
+        assert [b["title"] for b in by_title] == ["Harry Potter"]
+
+        by_author = (await client.get("/books?search=tolkien")).json()
+        assert [b["author"] for b in by_author] == ["J.R.R. Tolkien"]
+
+        no_match = (await client.get("/books?search=xyzzy")).json()
+        assert no_match == []
+
+        no_param = (await client.get("/books")).json()
+        assert len(no_param) == 2

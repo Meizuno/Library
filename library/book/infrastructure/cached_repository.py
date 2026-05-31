@@ -61,8 +61,11 @@ class CachedBookRepository:
     async def find_by_isbn(self, isbn: ISBN) -> Book | None:
         return await self._inner_repo.find_by_isbn(isbn)
 
-    async def list_all(self) -> list[Book]:
-        return await self._inner_repo.list_all()
+    async def list_all(self, search: str | None = None) -> list[Book]:
+        # Lists are not cached (cache invalidation across arbitrary
+        # filter combinations would be its own can of worms); pass
+        # straight through to the inner repository.
+        return await self._inner_repo.list_all(search=search)
 
     async def delete(self, book_id: UUID) -> None:
         await self._inner_repo.delete(book_id)

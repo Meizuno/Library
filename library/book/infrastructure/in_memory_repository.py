@@ -24,8 +24,15 @@ class InMemoryBookRepository:
                 return book
         return None
 
-    async def list_all(self) -> list[Book]:
-        return list(self._book_db.values())
+    async def list_all(self, search: str | None = None) -> list[Book]:
+        books = list(self._book_db.values())
+        needle = search.strip().lower() if search else ""
+        if not needle:
+            return books
+        return [
+            b for b in books
+            if needle in b.title.lower() or needle in b.author.lower()
+        ]
 
     async def delete(self, book_id: UUID) -> None:
         if book_id not in self._book_db:

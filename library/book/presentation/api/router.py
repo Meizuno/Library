@@ -24,11 +24,12 @@ router = APIRouter(prefix="/books", tags=["books"])
 
 @router.get("")
 async def list_books(
+    search: str | None = None,
     list_books_use_case: ListBooksUseCase = Depends(
         dependencies.get_list_books_use_case
     ),
 ) -> list[BookResponse]:
-    books = await list_books_use_case.execute()
+    books = await list_books_use_case.execute(search=search)
     return [BookResponse.from_domain(book) for book in books]
 
 
