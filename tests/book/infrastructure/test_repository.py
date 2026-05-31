@@ -5,24 +5,11 @@ from fakeredis import FakeAsyncRedis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from library.book.domain import ISBN, Book, BookNotFound, BookRepository
-from library.book.infrastructure import (
-    CachedBookRepository,
-    InMemoryBookRepository,
-    SqlBookRepository,
-)
+from library.book.infrastructure import CachedBookRepository, SqlBookRepository
 from library.shared.infrastructure.cache import RedisCache
 
 
 class TestProtocolSatisfaction:
-    def test_in_memory_book_repo_satisfies_protocol(self):
-        repo: BookRepository = InMemoryBookRepository()
-        assert hasattr(repo, "create")
-        assert hasattr(repo, "update")
-        assert hasattr(repo, "find_by_id")
-        assert hasattr(repo, "find_by_isbn")
-        assert hasattr(repo, "list_all")
-        assert hasattr(repo, "delete")
-
     def test_cached_book_repo_satisfies_protocol(self, sql_book_repo):
         repo: BookRepository = CachedBookRepository(
             sql_book_repo, RedisCache(FakeAsyncRedis(), 300)

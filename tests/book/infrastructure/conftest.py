@@ -5,11 +5,7 @@ from fakeredis import FakeAsyncRedis
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from library.book.domain import Book, BookRepository
-from library.book.infrastructure import (
-    CachedBookRepository,
-    InMemoryBookRepository,
-    SqlBookRepository,
-)
+from library.book.infrastructure import CachedBookRepository, SqlBookRepository
 from library.shared.infrastructure import metadata
 from library.shared.infrastructure.cache import InMemoryCache, RedisCache
 
@@ -25,13 +21,11 @@ async def sql_book_repo() -> AsyncGenerator[SqlBookRepository, None]:
     await engine.dispose()
 
 
-@pytest.fixture(params=["in_memory", "sql", "cache_redis", "cache_in_memory"])
+@pytest.fixture(params=["sql", "cache_redis", "cache_in_memory"])
 async def empty_book_repo(
     request, sql_book_repo: SqlBookRepository
 ) -> AsyncGenerator[BookRepository, None]:
-    if request.param == "in_memory":
-        yield InMemoryBookRepository()
-    elif request.param == "sql":
+    if request.param == "sql":
         yield sql_book_repo
     elif request.param == "cache_redis":
         yield CachedBookRepository(

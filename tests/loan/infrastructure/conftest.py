@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from library.loan.domain import Loan, LoanRepository
-from library.loan.infrastructure import InMemoryLoanRepository, SqlLoanRepository
+from library.loan.infrastructure import SqlLoanRepository
 from library.shared.infrastructure import metadata
 
 
@@ -19,13 +19,11 @@ async def sql_loan_repo() -> AsyncGenerator[SqlLoanRepository, None]:
     await engine.dispose()
 
 
-@pytest.fixture(params=["in_memory", "sql"])
+@pytest.fixture(params=["sql"])
 async def empty_loan_repo(
     request, sql_loan_repo: SqlLoanRepository
 ) -> AsyncGenerator[LoanRepository, None]:
-    if request.param == "in_memory":
-        yield InMemoryLoanRepository()
-    elif request.param == "sql":
+    if request.param == "sql":
         yield sql_loan_repo
 
 

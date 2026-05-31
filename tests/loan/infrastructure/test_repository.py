@@ -5,20 +5,10 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from library.loan.domain import Loan, LoanNotFound, LoanRepository
-from library.loan.infrastructure import InMemoryLoanRepository, SqlLoanRepository
+from library.loan.infrastructure import SqlLoanRepository
 
 
 class TestProtocolSatisfaction:
-    def test_in_memory_loan_repo_satisfies_protocol(self):
-        repo: LoanRepository = InMemoryLoanRepository()
-        assert hasattr(repo, "create")
-        assert hasattr(repo, "update")
-        assert hasattr(repo, "find_by_id")
-        assert hasattr(repo, "find_active_by_book")
-        assert hasattr(repo, "find_by_member")
-        assert hasattr(repo, "list_all")
-        assert hasattr(repo, "delete")
-
     def test_sql_loan_repo_satisfies_protocol(self):
         repo: LoanRepository = SqlLoanRepository(AsyncSession())
         assert hasattr(repo, "create")

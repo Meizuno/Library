@@ -12,22 +12,12 @@ from library.member.domain import (
 )
 from library.member.infrastructure import (
     CachedMemberRepository,
-    InMemoryMemberRepository,
     SqlMemberRepository,
 )
 from library.shared.infrastructure.cache import RedisCache
 
 
 class TestProtocolSatisfaction:
-    def test_in_memory_member_repo_satisfies_protocol(self):
-        repo: MemberRepository = InMemoryMemberRepository()
-        assert hasattr(repo, "create")
-        assert hasattr(repo, "update")
-        assert hasattr(repo, "find_by_id")
-        assert hasattr(repo, "find_by_email")
-        assert hasattr(repo, "list_all")
-        assert hasattr(repo, "delete")
-
     def test_cached_member_repo_satisfies_protocol(self, sql_member_repo):
         repo: MemberRepository = CachedMemberRepository(
             sql_member_repo, RedisCache(FakeAsyncRedis(), 300)

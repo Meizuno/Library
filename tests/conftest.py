@@ -18,6 +18,7 @@ from uuid import uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from library.auth.domain import (
     CredentialVerifier,
@@ -25,8 +26,8 @@ from library.auth.domain import (
     TokenIssuer,
 )
 from library.auth.infrastructure import (
-    InMemoryRefreshTokenRepository,
     PyJWTTokenIssuer,
+    SqlRefreshTokenRepository,
 )
 from library.auth.presentation.api.dependencies import get_refresh_token_repo
 from library.auth.presentation.api.security import (
@@ -34,10 +35,10 @@ from library.auth.presentation.api.security import (
     get_verified_member,
 )
 from library.book.domain import ISBN, Book, BookRepository
-from library.book.infrastructure import InMemoryBookRepository
+from library.book.infrastructure import SqlBookRepository
 from library.book.presentation.api.dependencies import get_book_repo
 from library.loan.domain import Loan, LoanRepository
-from library.loan.infrastructure import InMemoryLoanRepository
+from library.loan.infrastructure import SqlLoanRepository
 from library.loan.presentation.api.dependencies import get_loan_repo
 from library.member.domain import (
     Email,
@@ -46,12 +47,13 @@ from library.member.domain import (
     VerificationTokenIssuer,
 )
 from library.member.infrastructure import (
-    InMemoryMemberRepository,
     MemberCredentialVerifier,
     PyJWTVerificationTokenIssuer,
+    SqlMemberRepository,
 )
 from library.notification.domain import Notification, Notifier
 from library.shared.application import Clock, PasswordHasher
+from library.shared.infrastructure import metadata
 from library.shared.presentation.api.dependencies import (
     get_clock,
     get_credential_verifier,
@@ -182,23 +184,47 @@ def verification_token_issuer() -> VerificationTokenIssuer:
 
 
 @pytest.fixture
-def refresh_token_repo() -> RefreshTokenRepository:
-    return InMemoryRefreshTokenRepository()
+async def db_engine() -> AsyncGenerator[AsyncEngine, None]:
+    """Fresh per-test in-memory SQLite engine with the full schema created.
+    Used by the SQL-backed repository fixtures below so every test gets an
+    isolated database; `metadata.create_all` is fast enough on SQLite that
+    per-test setup is invisible in the runtime."""
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(metadata.create_all)
+    yield engine
+    await engine.dispose()
 
 
 @pytest.fixture
-def book_repo() -> BookRepository:
-    return InMemoryBookRepository()
+async def db_session(
+    db_engine: AsyncEngine,
+) -> AsyncGenerator[AsyncSession, None]:
+    """Single session shared across all repo fixtures in a test, so writes
+    through one repo are visible through another (autoflush handles the
+    intra-session visibility)."""
+    async with AsyncSession(db_engine) as session:
+        yield session
 
 
 @pytest.fixture
-def member_repo() -> MemberRepository:
-    return InMemoryMemberRepository()
+def refresh_token_repo(db_session: AsyncSession) -> RefreshTokenRepository:
+    return SqlRefreshTokenRepository(db_session)
 
 
 @pytest.fixture
-def loan_repo() -> LoanRepository:
-    return InMemoryLoanRepository()
+def book_repo(db_session: AsyncSession) -> BookRepository:
+    return SqlBookRepository(db_session)
+
+
+@pytest.fixture
+def member_repo(db_session: AsyncSession) -> MemberRepository:
+    return SqlMemberRepository(db_session)
+
+
+@pytest.fixture
+def loan_repo(db_session: AsyncSession) -> LoanRepository:
+    return SqlLoanRepository(db_session)
 
 
 @pytest.fixture

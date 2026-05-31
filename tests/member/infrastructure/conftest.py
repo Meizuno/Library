@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from library.member.domain import Member, MemberRepository
 from library.member.infrastructure import (
     CachedMemberRepository,
-    InMemoryMemberRepository,
     SqlMemberRepository,
 )
 from library.shared.infrastructure import metadata
@@ -25,13 +24,11 @@ async def sql_member_repo() -> AsyncGenerator[SqlMemberRepository, None]:
     await engine.dispose()
 
 
-@pytest.fixture(params=["in_memory", "sql", "cache_redis", "cache_in_memory"])
+@pytest.fixture(params=["sql", "cache_redis", "cache_in_memory"])
 async def empty_member_repo(
     request, sql_member_repo: SqlMemberRepository
 ) -> AsyncGenerator[MemberRepository, None]:
-    if request.param == "in_memory":
-        yield InMemoryMemberRepository()
-    elif request.param == "sql":
+    if request.param == "sql":
         yield sql_member_repo
     elif request.param == "cache_redis":
         yield CachedMemberRepository(
