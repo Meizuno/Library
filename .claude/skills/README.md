@@ -1,12 +1,12 @@
-# `.agents/skills/`
+# `.claude/skills/`
 
 Project-local AI skills. Each subfolder is a single skill with a `SKILL.md` (the main instruction file) and optional supporting files.
 
-Skills are discovered automatically by Claude Code from the `.agents/skills/` directory. The human invokes a skill via a slash-command matching its name (e.g., `/add-use-case`).
+Skills are auto-discovered by Claude Code from `.claude/skills/` (the standard project-local path). The human invokes a skill via a slash-command matching its `name:` field in the frontmatter (e.g., `/add-use-case`).
 
 ## Available skills
 
-Skills are physically flat in `.agents/skills/` (required for slash-command discovery), but **grouped by intent** below. Naming prefixes (`add-*` for code generation, `git-*` for version control) signal the group.
+Skills are physically flat in `.claude/skills/` (required for slash-command discovery), but **grouped by intent** below. Naming prefixes (`add-*` for code generation, `git-*` for version control) signal the group.
 
 ### 🎯 Orchestration
 
@@ -113,7 +113,7 @@ Add them when there's a real second skill in the group, not pre-emptively (YAGNI
 
 ## How to add a new skill
 
-1. Create a new folder: `.agents/skills/<skill-name>/`
+1. Create a new folder: `.claude/skills/<skill-name>/`
 2. Add `SKILL.md` with this frontmatter:
 
    ```markdown

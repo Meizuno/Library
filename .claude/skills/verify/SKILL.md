@@ -30,7 +30,7 @@ Expected: `Your code has been rated at 10.00/10`. If lower, fix the underlying i
 ### 3. Spellcheck
 
 ```sh
-codespell --skip="*.lock,.git,__pycache__,.venv,*.egg-info,.pytest_cache,.agents"
+codespell --skip="*.lock,.git,__pycache__,.venv,*.egg-info,.pytest_cache,.claude"
 ```
 
 Expected: zero hits. If there's a false positive (technical term), add it to a project codespell ignore list — do NOT comment it out per-line.
