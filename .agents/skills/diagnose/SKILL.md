@@ -146,8 +146,7 @@ loan, but these were not in a single transaction. Two concurrent
 requests both passed the check before either committed.
 
 Fix: wrap the read-then-write in book_repo.try_borrow(book_id) at
-the repository level, atomic per backend (SELECT FOR UPDATE in SQL,
-asyncio.Lock in InMemory).
+the repository level, atomic per backend (SELECT FOR UPDATE in SQL).
 
 Why tests missed it: integration test ran requests sequentially.
 Added test that fires two BorrowBookUseCase.execute() concurrently
@@ -173,10 +172,10 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 This codebase makes debugging **much easier** than a typical project:
 
 - **`FakeClock(fixed_now=...)`** — eliminates time as a variable
-- **`InMemory<X>Repository`** — eliminates database as a variable
+- **SQLite `:memory:` (one engine per test)** — eliminates the production DB as a variable; fast enough that `metadata.create_all` per test is invisible
 - **`fakeredis`** — eliminates Redis as a variable
 - **`FakePasswordHasher`** — eliminates Argon2 cost as a variable
-- **Parametrized contract tests** — bug only in SQL? in Redis? in in-memory? The fixture tells you immediately.
+- **Parametrized contract tests** — bug only in raw SQL? in the cached wrapper? in the Redis variant? The fixture parameter tells you immediately.
 - **`structlog` with `contextvars`** — every log line carries `request_id`, so you can grep one request's full trace
 - **`pytest -W error`** — surfaces deprecation warnings before they become bugs
 - **Type hints + `pylint`** — many "bugs" are actually type mismatches caught at lint

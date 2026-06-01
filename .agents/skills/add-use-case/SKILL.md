@@ -138,7 +138,6 @@ import pytest
 from library.<slice>.application.use_cases.<verb>_<noun> import <Verb><Noun>UseCase
 from library.<slice>.application.commands import <Verb><Noun>Command
 from library.<slice>.application.exceptions import <ApplicationException>
-from library.<slice>.infrastructure.in_memory_repository import InMemory<Entity>Repository
 
 
 @pytest.fixture
@@ -157,7 +156,7 @@ async def test_<verb>_<noun>_raises_on_missing(use_case):
 ```
 
 **Test rules:**
-- Use **in-memory** repositories (no SQL in unit tests)
+- Use the **conftest-provided repo fixtures** (`book_repo`, `member_repo`, `loan_repo`, `refresh_token_repo`) — they are `Sql*Repository` instances backed by a fresh `:memory:` SQLite engine per test, set up by `db_engine` + `db_session` fixtures in [`tests/conftest.py`](../../../tests/conftest.py)
 - Use **FakeClock** (fixed timestamp) for time-dependent behaviour
 - Test happy path + at least one error path per branch
 - Test names: `test_<verb>_<noun>_<expectation>` (one assertion per test where possible)

@@ -17,7 +17,7 @@ Execute in this order, **stop on first failure**:
 pytest -W error
 ```
 
-Expected: **396 passed, 0 warnings**. If a deprecation warning appears, fix it — do NOT silence it with `-W ignore::DeprecationWarning`.
+Expected: **397 passed, 0 warnings**. If a deprecation warning appears, fix it — do NOT silence it with `-W ignore::DeprecationWarning`.
 
 ### 2. Linter — must score 10.00/10
 
@@ -64,7 +64,7 @@ Expected: pass. The project intentionally uses only permissively-licensed depend
 After running all six, report to the human:
 
 ```
-✅ pytest:      396/396 passed, 0 warnings
+✅ pytest:      397/397 passed, 0 warnings
 ✅ pylint:      10.00/10
 ✅ codespell:   clean
 ✅ bandit:      no medium/high findings
