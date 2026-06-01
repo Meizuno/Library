@@ -13,31 +13,48 @@ Generate a proper Conventional Commits message based on what's actually staged, 
 
 ### Step 0 — Branch awareness
 
-**Before** writing any commit message, check where you are:
+**Before** writing any commit message, check where you are AND what other branches exist:
 
 ```sh
-git branch --show-current
-git status --short --branch
+git branch --show-current        # current branch
+git status --short --branch      # ahead/behind state + dirty files
+git branch -vv                   # all local branches + tracking info
+git branch -r                    # remote branches (catches "the work I want is on a branch I forgot about")
 ```
+
+The human prefers **reusing existing branches** when scope matches — avoid creating new branches unless none fit.
 
 Decision tree:
 
 ```
 Are you on main / master?
-├── YES → STOP. Propose creating a feature branch first.
-│        See branches.md for naming. Do NOT commit directly on main.
+├── YES → STOP. Do NOT commit on main. Do this in order:
+│        1. Inspect the change about to be committed (its type/scope).
+│        2. Scan existing branches — does one match this work?
+│           Match signals: branch name resembles the change's scope,
+│           the branch's recent commits are on the same files, the
+│           human mentioned working on it earlier.
+│        3. If a match exists → propose switching to that branch:
+│             "There's an existing `<branch>` that looks like the right
+│              home for this. Switch to it instead of creating a new one?"
+│        4. If no match exists → propose creating a new branch:
+│             "No existing branch matches. Create `<type>/<short-name>`?"
+│        5. Wait for the human's choice. Do not switch / create
+│           automatically.
 │
 └── NO → Are you on the right branch for this change?
     ├── YES → Continue to Step 1
     │
     ├── Branch name doesn't match the change you're about to commit
     │   → Ask the human: "This change looks like <type>(<scope>) but the
-    │      branch is `<other-branch>`. Should I create a new branch, or
-    │      is this a fixup for the current one?"
+    │      branch is `<other-branch>`. Reuse this branch as a fixup, or
+    │      switch to / create another one?"
     │
     └── Detached HEAD / weird state
         → Surface to the human, don't guess.
 ```
+
+**If the human picks an existing branch**: `git switch <branch>`. The uncommitted changes follow naturally as long as they don't conflict with that branch's working tree.
 
 **If the human confirms a new branch:** see [branches.md](branches.md) for naming rules and creation commands. Default pattern: `<type>/<short-descriptive-name>` (e.g., `feat/check-due-loans-use-case`, `fix/borrow-race-condition`).
 
