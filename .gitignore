@@ -58,6 +58,9 @@ logs/
 *.swo
 *~
 
+# Claude Code — per-developer overrides (settings.json is committed)
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db
