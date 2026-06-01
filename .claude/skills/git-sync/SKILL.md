@@ -61,7 +61,13 @@ git pull --ff-only origin main
 After updating `main`, find local feature branches whose work is now in `main`:
 
 ```sh
-git branch --merged main | grep -vE '^\s*(main|master|\*)' | xargs -r git branch -d
+# Anchored regex (`$`) excludes only branches NAMED exactly `main` or
+# `master`, not any branch whose name happens to start with those
+# substrings. A shell loop is portable (GNU `xargs -r` is not available
+# on BSD / PowerShell).
+for branch in $(git branch --merged main | grep -vE '^\s*\*?\s*(main|master)$'); do
+  git branch -d "$branch"
+done
 ```
 
 `git branch -d` is **safe** — it refuses to delete branches that have unmerged commits. So this is non-destructive even if the heuristic is wrong.
@@ -74,14 +80,19 @@ Deleted local branches (work already in main):
   - feat/check-due-loans-use-case
 ```
 
-### Step 4 — Special handling if current branch was the merged one
+### Step 4 — Special case: current branch was the merged one
 
-If the human ran `/git-sync` **while on a feature branch that was just merged** (its remote was deleted by GitHub's auto-cleanup):
+If the human ran `/git-sync` while on a feature branch whose remote was just deleted (PR merged + GitHub's auto-cleanup):
 
 ```sh
-git switch main                      # leave the merged branch first
-# Step 2 already updated main
-git branch -d <merged-branch>        # safe delete
+# 1. Leave the merged branch (you cannot delete the branch you're on).
+git switch main
+
+# 2. Bring main up to date with origin/main (same as Step 2).
+git pull --ff-only origin main
+
+# 3. Safe-delete the now-merged branch locally.
+git branch -d <merged-branch>
 ```
 
 Report:
@@ -172,7 +183,7 @@ In these cases, **report the situation in plain language and stop**. Do not atte
 
 - Before [`/add-feature`](../add-feature/SKILL.md) — run `/git-sync` first so the new feature branch is from the latest `main`
 - Between slices in `/add-feature` — if a slice was merged (PR closed), `/git-sync` cleans up before the next slice's branch is created
-- After [`/handoff`](../handoff/SKILL.md) — sync to leave the repo in a clean state for next session
+- Before [`/handoff`](../handoff/SKILL.md) — sync so the handoff describes a clean repo state
 
 ## Resume one-liner
 
