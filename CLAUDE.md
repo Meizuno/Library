@@ -10,7 +10,7 @@ For setup, motivation, and detailed architectural rationale, see **[README.md](R
 
 ## Quick orientation
 
-This is a Python 3.12+ async backend (FastAPI + SQLAlchemy 2.x Core + Postgres + Redis), structured as a **modular monolith** with hexagonal layers inside each bounded-context slice (`book/`, `member/`, `loan/`, `auth/`, `notification/`). 396 tests guard every architectural claim.
+This is a Python 3.12+ async backend (FastAPI + SQLAlchemy 2.x Core + Postgres + Redis), structured as a **modular monolith** with hexagonal layers inside each bounded-context slice (`book/`, `member/`, `loan/`, `auth/`, `notification/`). 397 tests guard every architectural claim.
 
 Before touching code:
 

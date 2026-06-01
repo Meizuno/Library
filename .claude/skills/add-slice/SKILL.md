@@ -31,8 +31,8 @@ Before generating skeleton, ask:
 - Does it **consume ports** from other slices? Which?
 - Does it **expose ports** for other slices to consume?
 - Will it have a **REST API**, or is it driven by other slices only (like `notification/`)?
-- Persistence: in-memory + SQL? Or in-memory only for now?
 - Cache decorator? (Books and Members have it; Loans does not.)
+- Soft delete on this aggregate? (Books and Members do; Loans and RefreshTokens do not.) See `deleted_at` pattern in [`books_table`](../../../library/book/infrastructure/sql_table.py) / [`members_table`](../../../library/member/infrastructure/sql_table.py).
 
 **Wait for human confirmation. Do not generate the skeleton without it.**
 
@@ -57,7 +57,6 @@ library/<slice>/
 │       └── <each use case>.py
 ├── infrastructure/
 │   ├── __init__.py
-│   ├── in_memory_repository.py
 │   ├── sql_table.py           # books_table-style declaration on shared MetaData
 │   ├── sql_repository.py
 │   └── cached_repository.py   # only if caching is decided
@@ -84,7 +83,7 @@ tests/<slice>/
 │   └── test_<each use case>.py
 ├── infrastructure/
 │   ├── __init__.py
-│   ├── conftest.py            # parametrized repository fixture (in_memory, sql, ...)
+│   ├── conftest.py            # parametrized repository fixture (sql, optionally cache_redis / cache_in_memory)
 │   └── test_repository_contract.py
 └── presentation/
     └── api/
@@ -195,44 +194,15 @@ from library.shared.infrastructure.sql_metadata import metadata
 
 **Always use the shared `metadata`** so all tables register into one schema.
 
-### Step 8 — Generate in-memory repository (contract template)
-
-`infrastructure/in_memory_repository.py`:
-
-```python
-from uuid import UUID
-from library.<slice>.domain.model import <Entity>
-from library.<slice>.domain.repository import <Entity>Repository
-from library.<slice>.domain.exceptions import <Entity>NotFound
-
-
-class InMemory<Entity>Repository:
-    def __init__(self):
-        self._store: dict[UUID, <Entity>] = {}
-
-    async def find_by_id(self, id: UUID) -> <Entity> | None:
-        return self._store.get(id)
-
-    async def create(self, entity: <Entity>) -> None:
-        if entity.id in self._store:
-            raise ValueError(f"<Entity> {entity.id} already exists")
-        self._store[entity.id] = entity
-
-    async def update(self, entity: <Entity>) -> None:
-        if entity.id not in self._store:
-            raise <Entity>NotFound(str(entity.id))
-        self._store[entity.id] = entity
-
-    # ... rest of protocol ...
-```
-
-### Step 9 — Wire composition root
+### Step 8 — Wire composition root
 
 Edit [`library/shared/presentation/api/dependencies.py`](../../../library/shared/presentation/api/dependencies.py) to:
 
-1. Add `get_<entity>_repository` (returns SQL impl in prod, in-memory in tests)
+1. Add `get_<entity>_repo` (returns the `Sql<Entity>Repository`, optionally wrapped by `Cached<Entity>Repository`)
 2. Add `get_<verb>_<noun>_use_case` for each use case
 3. Register the router (in `shared/presentation/api/main.py`)
+
+Tests override `get_<entity>_repo` automatically through the `<entity>_repo` fixture in [`tests/conftest.py`](../../../tests/conftest.py) — there is no separate in-memory backend; SQLite `:memory:` plays both roles.
 
 ### Step 10 — Update README
 

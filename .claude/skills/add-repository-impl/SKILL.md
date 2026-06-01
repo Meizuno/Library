@@ -12,10 +12,9 @@ When the human says "add MongoDB backend for Book" / "add file-based BookReposit
 1. Read [AGENTS.md](../../../AGENTS.md) — Repository pattern rules.
 2. Identify the **protocol** to implement: `library/<slice>/domain/repository.py`
 3. Read existing implementations to mirror style:
-   - [`InMemoryBookRepository`](../../../library/book/infrastructure/in_memory_repository.py) — simplest, dict-based
-   - [`SqlBookRepository`](../../../library/book/infrastructure/sql_repository.py) — production reference
+   - [`SqlBookRepository`](../../../library/book/infrastructure/sql_repository.py) — production reference, includes the soft-delete + filter-on-read pattern
    - [`CachedBookRepository`](../../../library/book/infrastructure/cached_repository.py) — decorator pattern (different role)
-4. Read the **contract test** that **all** impls must pass: [`tests/book/infrastructure/conftest.py`](../../../tests/book/infrastructure/conftest.py) + [`test_repository_contract.py`](../../../tests/book/infrastructure/test_repository_contract.py)
+4. Read the **contract test** that **all** impls must pass: [`tests/book/infrastructure/conftest.py`](../../../tests/book/infrastructure/conftest.py) + [`tests/book/infrastructure/test_repository.py`](../../../tests/book/infrastructure/test_repository.py)
 
 ## Workflow
 
@@ -101,13 +100,11 @@ Edit `tests/<slice>/infrastructure/conftest.py`:
 
 ```python
 @pytest.fixture(
-    params=["in_memory", "sql", "<your_backend>"],   # ← add yours
-    ids=["in_memory", "sql", "<your_backend>"],
+    params=["sql", "<your_backend>"],   # ← add yours
+    ids=["sql", "<your_backend>"],
 )
 async def empty_<entity>_repo(request, sql_<entity>_repo, <your_backend>_<entity>_repo):
-    if request.param == "in_memory":
-        yield InMemory<Entity>Repository()
-    elif request.param == "sql":
+    if request.param == "sql":
         yield sql_<entity>_repo
     elif request.param == "<your_backend>":
         yield <your_backend>_<entity>_repo

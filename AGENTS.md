@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Mandatory rules for AI agents working in this repository. These rules are enforced by 396 tests and `pylint library tests` (10.00/10). Violations break the build.
+Mandatory rules for AI agents working in this repository. These rules are enforced by 397 tests and `pylint library tests` (10.00/10). Violations break the build.
 
 For setup, motivation, and detailed architecture rationale, see [README.md](README.md).
 
@@ -17,7 +17,7 @@ application/   ── use cases, commands, app-level exceptions
    ↓
 domain/        ── entities, value objects, repository + service ports, domain exceptions
    ↑
-infrastructure/── SQL, Redis, SMTP, JWT, Argon2, in-memory adapters
+infrastructure/── SQL, Redis, SMTP, JWT, Argon2 adapters
 ```
 
 `shared/` holds genuinely cross-cutting code (Clock port, PasswordHasher port, Logger port, Cache protocol, config, structlog setup, FastAPI composition root).
@@ -55,10 +55,32 @@ Cross-slice imports are **one-way and explicit**:
 ### Repository Pattern (Ports & Adapters)
 
 - Protocol in `<feature>/domain/repository.py`
-- Implementations in `<feature>/infrastructure/`: `InMemory*`, `Sql*`, optional `Cached*` decorator
+- Implementations in `<feature>/infrastructure/`: `Sql*`, optional `Cached*` decorator
 - **`create(entity)` vs `update(entity)` are separate** — no upserts. `create` raises on duplicate id; `update` raises on missing.
 - Methods use **domain language** (`find_by_isbn`), not SQL primitives
 - All implementations must pass the parametrized contract test in `tests/<feature>/infrastructure/conftest.py`
+
+### Soft delete (Book, Member)
+
+- `books` and `members` tables carry `deleted_at: DateTime | None` — NULL = active row
+- `SqlBookRepository.delete()` and `SqlMemberRepository.delete()` are `UPDATE ... SET deleted_at = NOW()`, not `DELETE FROM ...`
+- Every read (`find_by_id`, `find_by_isbn` / `find_by_email`, `list_all`, `update`) filters `WHERE deleted_at IS NULL`
+- The repository **observable contract is unchanged** — after `delete(id)`, `find_by_id(id)` returns None, `list_all()` excludes the row. The "soft" part is an SQL-impl detail.
+- SQL-impl-specific guarantees (row physically stays, `deleted_at` is stamped, double-delete raises) are covered separately in [`tests/book/infrastructure/test_sql_soft_delete.py`](tests/book/infrastructure/test_sql_soft_delete.py) and [`tests/member/infrastructure/test_sql_soft_delete.py`](tests/member/infrastructure/test_sql_soft_delete.py)
+
+### Foreign keys with `ondelete="RESTRICT"`
+
+- `loans.book_id`, `loans.member_id`, and `refresh_tokens.member_id` reference parent tables with `ForeignKey(..., ondelete="RESTRICT")`
+- In normal app flow nothing ever fires the constraint — books and members are soft-deleted, the parent rows stay physically present
+- The FK is the safety net for any path that bypasses soft-delete: raw SQL, future GDPR-style hard-delete use cases, migrations
+- New tables with cross-aggregate references must follow this pattern
+
+### Repository search filters
+
+- `BookRepository.list_all(search: str | None = None)` — optional case-insensitive substring filter matching against title **OR** author
+- `None`, empty, and whitespace-only search mean "no filter — return everything"
+- SQL impl uses `column.icontains(value, autoescape=True)` so user-supplied `%` / `_` cannot leak through as LIKE wildcards
+- Soft-deleted rows remain excluded — the `deleted_at IS NULL` filter ANDs with the search filter
 
 ### Use Cases as classes
 
@@ -136,7 +158,7 @@ Two base classes in `shared/`:
 
 | Layer | Path | Examples |
 |---|---|---|
-| Domain | `<feature>/domain/exceptions.py` | `BookNotFound`, `BookNotAvailable`, `MemberNotFound`, `InvalidVerificationToken`, `LoanNotFound`, `RefreshTokenInvalid` |
+| Domain | `<feature>/domain/exceptions.py` | `BookNotFound`, `BookNotAvailable`, `MemberNotFound`, `InvalidVerificationToken`, `LoanNotFound`, `RefreshTokenInvalid`, `RefreshTokenExpired`, `RefreshTokenRevoked`, `RefreshTokenNotFound` |
 | Application | `<feature>/application/exceptions.py` | `BookAlreadyExists`, `MemberAlreadyExists`, `MemberNotVerified`, `InvalidCredentials` |
 
 **Centralized HTTP mapping** in [`shared/presentation/api/main.py`](library/shared/presentation/api/main.py):
@@ -168,13 +190,13 @@ ValueError                                        → 422
 
 ## Tests
 
-396 tests total. Test tree mirrors source tree 1:1.
+397 tests total. Test tree mirrors source tree 1:1.
 
 - **Test runner:** `pytest -W error` (warnings = failures)
 - **Asyncio mode:** `auto` (from `pyproject.toml`)
-- **Contract tests** are parametrized over every repository impl (`in_memory`, `sql`, `cache_redis`, `cache_in_memory`)
-- **Cross-feature fixtures** in [`tests/conftest.py`](tests/conftest.py): `valid_*`, `clock`, `token_issuer`, `credential_verifier`, `verification_token_issuer`, `client`
-- **No real I/O in unit tests** — use in-memory repos, FakeClock, fakeredis, FakePasswordHasher
+- **Contract tests** are parametrized over every repository impl: `sql` for all slices, plus `cache_redis` / `cache_in_memory` for book and member
+- **Cross-feature fixtures** in [`tests/conftest.py`](tests/conftest.py): `valid_*`, `clock`, `token_issuer`, `credential_verifier`, `verification_token_issuer`, `client`. The repo fixtures (`book_repo`, `member_repo`, `loan_repo`, `refresh_token_repo`) are `Sql*Repository` instances backed by a fresh `:memory:` SQLite engine per test, sharing one `db_session` so writes through one repo are visible through another.
+- **No real I/O in unit tests** — SQLite `:memory:` for persistence, `FakeClock` for time, `fakeredis` for Redis, `FakePasswordHasher` for hashing, `FakeNotifier` for outbound notifications
 
 ---
 
@@ -214,7 +236,7 @@ Before considering work done, AI agents must verify:
 
 1. ✅ **No layer violations** — `domain/` doesn't import infrastructure; `application/` doesn't import infrastructure
 2. ✅ **No ORM leakage** — repositories return domain entities, not SQL rows
-3. ✅ **`pytest -W error`** runs clean (all 396 tests + zero warnings)
+3. ✅ **`pytest -W error`** runs clean (all 397 tests + zero warnings)
 4. ✅ **`pylint library tests`** scores 10.00/10
 5. ✅ **No `datetime.now()`** outside the `Clock` impl in `shared/infrastructure/clock.py`
 6. ✅ **No `try/except`** in routers

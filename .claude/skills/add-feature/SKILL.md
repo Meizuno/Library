@@ -46,14 +46,14 @@ Propose a **slice list** as a numbered plan. Each slice must be:
 **Standard decomposition order:**
 
 ```
-1. Port + InMemory impl + test    ← foundation, no business logic yet
-2. SQL impl + contract test       ← persistence (skip if no DB involved)
-3. Use case + application tests   ← business logic, using fakes
-4. Composition root wiring        ← DI in shared/presentation/api/dependencies.py
-5. Presentation layer + API tests ← HTTP endpoint
-6. Cron / scheduler entry point   ← if scheduled (else skip)
-7. Docker / CI tweaks             ← only if infra needs changes
-8. README / docs update           ← architectural choices worth recording
+1. Domain entity + value objects + repository protocol + tests   ← shape only
+2. SQL impl + contract test (parametrized over backends)         ← persistence (skip if no DB)
+3. Use case + application tests                                  ← business logic
+4. Composition root wiring                                       ← DI in shared/presentation/api/dependencies.py
+5. Presentation layer + API tests                                ← HTTP endpoint
+6. Cron / scheduler entry point                                  ← if scheduled (else skip)
+7. Docker / CI tweaks                                            ← only if infra needs changes
+8. README / docs update                                          ← architectural choices worth recording
 ```
 
 Not every feature has all 8. Most have 3–5.
@@ -61,7 +61,7 @@ Not every feature has all 8. Most have 3–5.
 **Example for "reminder notifications":**
 
 ```
-Slice 1: NotificationLog port + InMemory impl + test
+Slice 1: NotificationLog entity + repository protocol + tests
          Branch: feat/notification-log-port
 Slice 2: SQL NotificationLog impl + contract test
          Branch: feat/notification-log-sql
@@ -220,7 +220,7 @@ agent:
 For slice 1 (NotificationLog port):
   → git switch -c feat/notification-log-port
   → invoke /add-value-object for NotificationKind
-  → invoke /add-repository-impl style (with new InMemory only)
+  → invoke /add-repository-impl to add the SQL backend + contract test
   → /verify
   → /git-commit
   → "Slice 1 done. Merge now or continue?"
