@@ -55,6 +55,15 @@ pylint library tests   # must score 10.00/10
 - Don't add `# pylint: disable=...` to silence warnings. Fix the underlying issue.
 - Don't introduce new third-party dependencies without confirming.
 
+### Git workflow
+
+The human owns the gates. Make edits freely; never cross a workflow gate without explicit invocation.
+
+- **Before starting work on a new feature or refactor**: list existing branches (`git branch -vv && git branch -r`). If a branch already exists for this scope (by name, recent commits, or what the human says they're working on), **propose reusing it** before suggesting a new one. Avoid branch proliferation — the human prefers one branch per logical chunk of work, reused when possible.
+- **Don't commit automatically.** Commits happen only when the human invokes [`/git-commit`](.claude/skills/git-commit/SKILL.md) or says "commit" / "commit it". Edits-without-commit is a valid resting state — let the human gate the commit. After making changes, surface what changed and **stop**; do not run `git commit` inline.
+- **Don't push automatically.** Pushes happen only when the human invokes [`/git-push`](.claude/skills/git-push/SKILL.md) or says "push" / "push it". `/git-commit` ends on a local commit; pushing is a separate, explicit step.
+- **Don't merge to main locally.** Merges happen on GitHub via PR. The human reviews, merges, and GitHub auto-deletes the source branch. Locally, [`/git-sync`](.claude/skills/git-sync/SKILL.md) handles cleanup (fetch + prune + safe-delete merged local branches).
+
 ---
 
 ## Tooling notes

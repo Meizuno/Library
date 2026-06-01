@@ -11,6 +11,8 @@ Push local commits to the remote with the right flags and safety checks. **This 
 
 This skill picks up where [`/git-commit`](../git-commit/SKILL.md) leaves off. If you haven't committed yet, do that first.
 
+**Invocation is always explicit.** Never auto-push after a commit, never bundle a push into another workflow. The human must say "push" / invoke `/git-push` / similar.
+
 ## Workflow
 
 ### Step 0 — Pre-flight state
