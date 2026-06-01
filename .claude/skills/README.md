@@ -35,7 +35,8 @@ Branch-aware git workflow with Conventional Commits.
 | Skill | Purpose |
 |---|---|
 | [`/git-commit`](git-commit/SKILL.md) | Conventional Commits message, branch detection / creation, verify, commit |
-| └─ [`branches.md`](git-commit/branches.md) | (Supporting reference for `/git-commit`) Branch naming, switching, merging, PR conventions |
+| └─ [`branches.md`](git-commit/branches.md) | (Supporting reference for `/git-commit` and `/git-push`) Branch naming, switching, merging, PR conventions |
+| [`/git-push`](git-push/SKILL.md) | Push to remote with safety checks — first-push `-u` tracking, rejected-push handling, force-push guards, surface next-step options (PR, merge) |
 | [`/git-sync`](git-sync/SKILL.md) | Pull latest main, prune deleted remote refs, delete merged local branches, optional rebase |
 
 ### ✅ Quality
@@ -77,7 +78,8 @@ For working across multiple sessions or handing off to a teammate.
    ├──→ /verify                      ← between slices
    ├──→ /diagnose                    ← when something breaks
    ├──→ /git-commit                  ← between slices (handles branch)
-   │     └─ branches.md              ← supporting reference
+   │     └─ branches.md              ← supporting reference (shared with /git-push)
+   ├──→ /git-push                    ← publish branch + commits to remote
    ├──→ /git-sync                    ← after merging a PR, before new slice
    ├──→ /update-readme               ← after slices / endpoints / deps change
    │
