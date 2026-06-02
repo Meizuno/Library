@@ -10,15 +10,19 @@ class BookResponse(BaseModel):
     author: str
     isbn: str
     description: str
+    is_available: bool
 
     @classmethod
-    def from_domain(cls, book: Book) -> "BookResponse":
+    def from_domain(
+        cls, book: Book, *, is_available: bool
+    ) -> "BookResponse":
         return cls(
             id=book.id,
             title=book.title,
             author=book.author,
             isbn=book.isbn.value,
             description=book.description,
+            is_available=is_available,
         )
 
 

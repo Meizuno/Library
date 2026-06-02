@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from library.auth.domain import CredentialVerifier, TokenIssuer
 from library.auth.infrastructure import PyJWTTokenIssuer
+from library.book.domain import BookAvailability
+from library.loan.infrastructure import LoanBookAvailability, SqlLoanRepository
 from library.member.domain import MemberRepository, VerificationTokenIssuer
 from library.member.infrastructure import (
     CachedMemberRepository,
@@ -100,3 +102,12 @@ def get_verification_token_issuer(
         algorithm=settings.jwt_algorithm,
         ttl_hours=settings.verification_token_ttl_hours,
     )
+
+
+def get_book_availability(
+    session: AsyncSession = Depends(get_session),
+) -> BookAvailability:
+    """Bridge `book.domain.BookAvailability` port to its impl in the
+    loan slice. Composition root keeps the cross-slice wiring here so
+    `book/` never has to import from `loan/`."""
+    return LoanBookAvailability(SqlLoanRepository(session))

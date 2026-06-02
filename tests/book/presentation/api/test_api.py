@@ -1,6 +1,9 @@
-from uuid import uuid4
+from datetime import datetime, timedelta
+from uuid import UUID, uuid4
 
 from httpx import AsyncClient
+
+from library.loan.domain import Loan, LoanRepository
 
 
 class TestBooksAPI:
@@ -20,6 +23,7 @@ class TestBooksAPI:
         assert body["author"] == "Author"
         assert body["isbn"] == "9783161484100"
         assert body["description"] == ""
+        assert body["is_available"] is True  # new book, no loans yet
         assert "id" in body
 
     async def test_create_book_with_description_returns_201(
@@ -125,6 +129,94 @@ class TestBooksAPI:
         book_id = created.json()["id"]
         response = await client.delete(f"/books/{book_id}")
         assert response.status_code == 204
+
+    async def test_read_book_is_available_true_when_no_active_loan(
+        self, client: AsyncClient
+    ):
+        created = await client.post(
+            "/books",
+            json={
+                "title": "Title",
+                "author": "Author",
+                "isbn": "978-3-16-148410-0",
+            },
+        )
+        book_id = created.json()["id"]
+
+        response = await client.get(f"/books/{book_id}")
+        assert response.status_code == 200
+        assert response.json()["is_available"] is True
+
+    async def test_read_book_is_available_false_when_active_loan_exists(
+        self,
+        client: AsyncClient,
+        loan_repo: LoanRepository,
+    ):
+        # Seed a book via the API, then seed an active loan against it
+        # directly through the (shared) loan_repo fixture — the same
+        # repo the LoanBookAvailability port reads from.
+        created = await client.post(
+            "/books",
+            json={
+                "title": "Borrowed Book",
+                "author": "Author",
+                "isbn": "978-3-16-148410-0",
+            },
+        )
+        book_id = UUID(created.json()["id"])
+
+        loaned_at = datetime(2026, 5, 1, 10, 0, 0)
+        await loan_repo.create(
+            Loan(
+                book_id=book_id,
+                member_id=uuid4(),
+                loaned_at=loaned_at,
+                due_at=loaned_at + timedelta(days=14),
+                # returned_at is None — active loan
+            )
+        )
+
+        response = await client.get(f"/books/{book_id}")
+        assert response.status_code == 200
+        assert response.json()["is_available"] is False
+
+    async def test_list_books_includes_is_available_per_book(
+        self,
+        client: AsyncClient,
+        loan_repo: LoanRepository,
+    ):
+        # Seed two books — one with an active loan, one without.
+        book_a = (await client.post(
+            "/books",
+            json={
+                "title": "Available Book",
+                "author": "Author",
+                "isbn": "978-3-16-148410-0",
+            },
+        )).json()
+        book_b = (await client.post(
+            "/books",
+            json={
+                "title": "Loaned Book",
+                "author": "Author",
+                "isbn": "978-3-16-148411-0",
+            },
+        )).json()
+
+        loaned_at = datetime(2026, 5, 1, 10, 0, 0)
+        await loan_repo.create(
+            Loan(
+                book_id=UUID(book_b["id"]),
+                member_id=uuid4(),
+                loaned_at=loaned_at,
+                due_at=loaned_at + timedelta(days=14),
+            )
+        )
+
+        listed = (await client.get("/books")).json()
+        by_id = {b["id"]: b for b in listed}
+        assert by_id[book_a["id"]]["is_available"] is True
+        assert by_id[book_b["id"]]["is_available"] is False
 
     async def test_list_books_with_search_filters_results(
         self, client: AsyncClient
