@@ -34,11 +34,11 @@ from library.auth.presentation.api.security import (
     get_current_member,
     get_verified_member,
 )
-from library.book.domain import ISBN, Book, BookRepository
+from library.book.domain import ISBN, Book, BookAvailability, BookRepository
 from library.book.infrastructure import SqlBookRepository
 from library.book.presentation.api.dependencies import get_book_repo
 from library.loan.domain import Loan, LoanRepository
-from library.loan.infrastructure import SqlLoanRepository
+from library.loan.infrastructure import LoanBookAvailability, SqlLoanRepository
 from library.loan.presentation.api.dependencies import get_loan_repo
 from library.member.domain import (
     Email,
@@ -55,6 +55,7 @@ from library.notification.domain import Notification, Notifier
 from library.shared.application import Clock, PasswordHasher
 from library.shared.infrastructure import metadata
 from library.shared.presentation.api.dependencies import (
+    get_book_availability,
     get_clock,
     get_credential_verifier,
     get_member_repo,
@@ -241,6 +242,14 @@ def credential_verifier(
 
 
 @pytest.fixture
+def book_availability(loan_repo: LoanRepository) -> BookAvailability:
+    """Wires the BookAvailability port to the test-scoped loan repo.
+    Tests that seed an active loan can flip a book's is_available to
+    False; otherwise (default) books read as available."""
+    return LoanBookAvailability(loan_repo)
+
+
+@pytest.fixture
 async def book_repo_with_book(
     book_repo: BookRepository, valid_book: Book
 ) -> BookRepository:
@@ -266,6 +275,7 @@ async def client(
     token_issuer: TokenIssuer,
     verification_token_issuer: VerificationTokenIssuer,
     credential_verifier: CredentialVerifier,
+    book_availability: BookAvailability,
     refresh_token_repo: RefreshTokenRepository,
     notifier: Notifier,
     valid_member: Member,
@@ -273,6 +283,7 @@ async def client(
     app.dependency_overrides[get_book_repo] = lambda: book_repo
     app.dependency_overrides[get_member_repo] = lambda: member_repo
     app.dependency_overrides[get_loan_repo] = lambda: loan_repo
+    app.dependency_overrides[get_book_availability] = lambda: book_availability
     app.dependency_overrides[get_clock] = lambda: clock
     app.dependency_overrides[get_password_hasher] = lambda: password_hasher
     app.dependency_overrides[get_token_issuer] = lambda: token_issuer
