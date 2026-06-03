@@ -1,8 +1,8 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from library.book.domain import BookRepository
-from library.book.presentation.api.dependencies import get_book_repo
+from library.book.api.dependencies import get_book_repo
+from library.book.ports import BookRepository
 from library.loan.application import BorrowBookUseCase, ReturnBookUseCase
 from library.loan.domain import LoanRepository
 from library.loan.infrastructure import SqlLoanRepository

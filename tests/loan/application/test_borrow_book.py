@@ -3,7 +3,9 @@ from uuid import uuid4
 
 import pytest
 
-from library.book.domain import Book, BookNotAvailable, BookNotFound, BookRepository
+from library.book.exceptions import BookNotAvailable, BookNotFound
+from library.book.models import Book
+from library.book.ports import BookRepository
 from library.loan.application import BorrowBookCommand, BorrowBookUseCase
 from library.loan.domain import LoanRepository
 from library.member.domain import Member, MemberNotFound, MemberRepository

@@ -34,9 +34,10 @@ from library.auth.presentation.api.security import (
     get_current_member,
     get_verified_member,
 )
-from library.book.domain import ISBN, Book, BookAvailability, BookRepository
-from library.book.infrastructure import SqlBookRepository
-from library.book.presentation.api.dependencies import get_book_repo
+from library.book.api.dependencies import get_book_repo
+from library.book.models import ISBN, Book
+from library.book.ports import BookAvailability, BookRepository
+from library.book.repositories import SqlBookRepository
 from library.loan.domain import Loan, LoanRepository
 from library.loan.infrastructure import LoanBookAvailability, SqlLoanRepository
 from library.loan.presentation.api.dependencies import get_loan_repo

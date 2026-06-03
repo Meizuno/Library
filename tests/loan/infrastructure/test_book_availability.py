@@ -7,7 +7,7 @@ is no active (not-yet-returned) loan referencing the book.
 from datetime import datetime, timedelta
 from uuid import uuid4
 
-from library.book.domain import BookAvailability
+from library.book.ports import BookAvailability
 from library.loan.domain import Loan, LoanRepository
 from library.loan.infrastructure import LoanBookAvailability
 

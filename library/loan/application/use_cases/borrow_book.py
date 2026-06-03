@@ -1,6 +1,7 @@
 from datetime import timedelta
 
-from library.book.domain import BookNotAvailable, BookNotFound, BookRepository
+from library.book.exceptions import BookNotAvailable, BookNotFound
+from library.book.ports import BookRepository
 from library.loan.application.commands import BorrowBookCommand
 from library.loan.domain import Loan, LoanRepository
 from library.member.domain import MemberNotFound, MemberRepository

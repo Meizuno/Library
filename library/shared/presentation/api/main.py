@@ -12,9 +12,12 @@ from library.auth.domain import (
     RefreshTokenRevoked,
 )
 from library.auth.presentation.api.router import router as auth_router
-from library.book.application import BookAlreadyExists
-from library.book.domain import BookNotAvailable, BookNotFound
-from library.book.presentation.api.router import router as book_router
+from library.book.api import router as book_router
+from library.book.exceptions import (
+    BookAlreadyExists,
+    BookNotAvailable,
+    BookNotFound,
+)
 from library.loan.domain import LoanNotFound
 from library.loan.presentation.api.router import router as loan_router
 from library.member.application import MemberAlreadyExists, MemberNotVerified
