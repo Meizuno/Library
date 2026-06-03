@@ -2,12 +2,11 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from library.auth.domain import InvalidAccessToken, TokenIssuer
-from library.member.application import MemberNotVerified
-from library.member.domain import Member, MemberRepository
-from library.shared.presentation.api.dependencies import (
-    get_member_repo,
-    get_token_issuer,
-)
+from library.member.api.dependencies import get_member_repo
+from library.member.exceptions import MemberNotVerified
+from library.member.models import Member
+from library.member.ports import MemberRepository
+from library.shared.presentation.api.dependencies import get_token_issuer
 
 
 bearer_scheme = HTTPBearer(auto_error=False)

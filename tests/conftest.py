@@ -41,13 +41,13 @@ from library.book.repositories import SqlBookRepository
 from library.loan.domain import Loan, LoanRepository
 from library.loan.infrastructure import LoanBookAvailability, SqlLoanRepository
 from library.loan.presentation.api.dependencies import get_loan_repo
-from library.member.domain import (
-    Email,
-    Member,
-    MemberRepository,
-    VerificationTokenIssuer,
+from library.member.api.dependencies import (
+    get_member_repo,
+    get_verification_token_issuer,
 )
-from library.member.infrastructure import (
+from library.member.models import Email, Member
+from library.member.ports import MemberRepository, VerificationTokenIssuer
+from library.member.repositories import (
     MemberCredentialVerifier,
     PyJWTVerificationTokenIssuer,
     SqlMemberRepository,
@@ -59,11 +59,9 @@ from library.shared.presentation.api.dependencies import (
     get_book_availability,
     get_clock,
     get_credential_verifier,
-    get_member_repo,
     get_notifier,
     get_password_hasher,
     get_token_issuer,
-    get_verification_token_issuer,
 )
 from library.shared.presentation.api.main import app
 

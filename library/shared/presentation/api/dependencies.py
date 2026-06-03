@@ -9,11 +9,9 @@ from library.auth.domain import CredentialVerifier, TokenIssuer
 from library.auth.infrastructure import PyJWTTokenIssuer
 from library.book.ports import BookAvailability
 from library.loan.infrastructure import LoanBookAvailability, SqlLoanRepository
-from library.member.domain import MemberRepository, VerificationTokenIssuer
-from library.member.infrastructure import (
+from library.member.repositories import (
     CachedMemberRepository,
     MemberCredentialVerifier,
-    PyJWTVerificationTokenIssuer,
     SqlMemberRepository,
 )
 from library.notification.domain import Notifier
@@ -80,34 +78,29 @@ def get_token_issuer(
     )
 
 
-def get_member_repo(
+def get_credential_verifier(
     session: AsyncSession = Depends(get_session),
     cache: Cache = Depends(get_cache),
-) -> MemberRepository:
-    return CachedMemberRepository(SqlMemberRepository(session), cache)
-
-
-def get_credential_verifier(
-    member_repo: MemberRepository = Depends(get_member_repo),
     hasher: PasswordHasher = Depends(get_password_hasher),
 ) -> CredentialVerifier:
+    """Bridge `auth.ports.CredentialVerifier` to its impl in the member
+    module. Wiring lives here (composition root) so auth/ never imports
+    from member/.
+
+    NOTE: the CachedMemberRepository(SqlMemberRepository(session), cache)
+    construction mirrors library.member.api.dependencies.get_member_repo
+    — inlined here to avoid a circular import between the two modules
+    (member.api.dependencies imports cross-cutting providers from this
+    file). Keep them in sync.
+    """
+    member_repo = CachedMemberRepository(SqlMemberRepository(session), cache)
     return MemberCredentialVerifier(member_repo, hasher)
-
-
-def get_verification_token_issuer(
-    settings: Settings = Depends(get_settings),
-) -> VerificationTokenIssuer:
-    return PyJWTVerificationTokenIssuer(
-        secret_key=settings.jwt_secret_key,
-        algorithm=settings.jwt_algorithm,
-        ttl_hours=settings.verification_token_ttl_hours,
-    )
 
 
 def get_book_availability(
     session: AsyncSession = Depends(get_session),
 ) -> BookAvailability:
-    """Bridge `book.domain.BookAvailability` port to its impl in the
-    loan slice. Composition root keeps the cross-slice wiring here so
-    `book/` never has to import from `loan/`."""
+    """Bridge `book.ports.BookAvailability` port to its impl in the loan
+    module. Composition root keeps the cross-module wiring here so book/
+    never has to import from loan/."""
     return LoanBookAvailability(SqlLoanRepository(session))

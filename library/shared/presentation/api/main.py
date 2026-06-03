@@ -20,9 +20,13 @@ from library.book.exceptions import (
 )
 from library.loan.domain import LoanNotFound
 from library.loan.presentation.api.router import router as loan_router
-from library.member.application import MemberAlreadyExists, MemberNotVerified
-from library.member.domain import InvalidVerificationToken, MemberNotFound
-from library.member.presentation.api.router import router as member_router
+from library.member.api import router as member_router
+from library.member.exceptions import (
+    InvalidVerificationToken,
+    MemberAlreadyExists,
+    MemberNotFound,
+    MemberNotVerified,
+)
 from library.shared.infrastructure import metadata
 from library.shared.logging_config import configure_logging
 from library.shared.presentation.api.dependencies import get_settings

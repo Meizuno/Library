@@ -4,7 +4,8 @@ from library.book.exceptions import BookNotAvailable, BookNotFound
 from library.book.ports import BookRepository
 from library.loan.application.commands import BorrowBookCommand
 from library.loan.domain import Loan, LoanRepository
-from library.member.domain import MemberNotFound, MemberRepository
+from library.member.exceptions import MemberNotFound
+from library.member.ports import MemberRepository
 from library.shared.application import Clock
 
 

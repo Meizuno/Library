@@ -6,8 +6,8 @@ from library.book.ports import BookRepository
 from library.loan.application import BorrowBookUseCase, ReturnBookUseCase
 from library.loan.domain import LoanRepository
 from library.loan.infrastructure import SqlLoanRepository
-from library.member.domain import MemberRepository
-from library.member.presentation.api.dependencies import get_member_repo
+from library.member.api.dependencies import get_member_repo
+from library.member.ports import MemberRepository
 from library.shared.application import Clock
 from library.shared.presentation.api.dependencies import get_clock, get_session
 

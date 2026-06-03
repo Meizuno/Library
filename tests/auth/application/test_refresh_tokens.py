@@ -18,7 +18,8 @@ from library.auth.domain import (
     RefreshTokenRevoked,
     TokenIssuer,
 )
-from library.member.domain import Member, MemberRepository
+from library.member.models import Member
+from library.member.ports import MemberRepository
 from library.shared.application import Clock
 from tests.conftest import FakeClock
 
