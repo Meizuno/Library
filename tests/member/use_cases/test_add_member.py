@@ -6,7 +6,7 @@ from library.member.use_cases.add_member import (
     AddMemberCommand,
     AddMemberUseCase,
 )
-from library.shared.application import PasswordHasher
+from library.shared.ports import PasswordHasher
 from tests.conftest import FakeNotifier
 
 

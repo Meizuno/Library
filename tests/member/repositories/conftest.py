@@ -10,8 +10,7 @@ from library.member.repositories import (
     CachedMemberRepository,
     SqlMemberRepository,
 )
-from library.shared.infrastructure import metadata
-from library.shared.infrastructure.cache import InMemoryCache, RedisCache
+from library.shared.adapters import InMemoryCache, RedisCache, metadata
 
 
 @pytest.fixture

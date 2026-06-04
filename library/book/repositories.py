@@ -18,8 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from library.book.exceptions import BookNotFound
 from library.book.models import ISBN, Book
 from library.book.ports import BookRepository
-from library.shared.infrastructure.cache import Cache
-from library.shared.infrastructure.sql_metadata import metadata
+from library.shared.adapters import metadata
+from library.shared.ports import Cache
 
 books_table = Table(
     "books",

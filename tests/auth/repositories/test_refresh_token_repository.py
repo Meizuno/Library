@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from library.auth.exceptions import RefreshTokenNotFound
 from library.auth.models import RefreshToken
 from library.auth.repositories import SqlRefreshTokenRepository
-from library.shared.infrastructure import metadata
+from library.shared.adapters import metadata
 
 
 @pytest.fixture

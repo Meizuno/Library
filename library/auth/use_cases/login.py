@@ -7,7 +7,7 @@ from library.auth.ports import (
     RefreshTokenRepository,
     TokenIssuer,
 )
-from library.shared.application import Clock
+from library.shared.ports import Clock
 
 
 @dataclass(frozen=True)

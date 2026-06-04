@@ -1,7 +1,7 @@
 from httpx import AsyncClient
 
 from library.auth.api.security import get_current_member, get_verified_member
-from library.shared.presentation.api.main import app
+from library.shared.api.main import app
 
 
 async def _register(client: AsyncClient, email: str = "user@example.com"):

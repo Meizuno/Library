@@ -11,7 +11,7 @@ from library.loan.use_cases.return_book import (
     ReturnBookCommand,
     ReturnBookUseCase,
 )
-from library.shared.application import Clock
+from library.shared.ports import Clock
 
 
 @pytest.fixture

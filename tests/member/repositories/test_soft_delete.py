@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from library.member.exceptions import MemberNotFound
 from library.member.models import Member
 from library.member.repositories import SqlMemberRepository, members_table
-from library.shared.infrastructure import metadata
+from library.shared.adapters import metadata
 
 
 @pytest.fixture

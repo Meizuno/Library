@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 from library.book.models import ISBN, Book
 from library.book.ports import BookRepository
 from library.book.repositories import CachedBookRepository
-from library.shared.infrastructure.cache import InMemoryCache
+from library.shared.adapters import InMemoryCache
 
 
 class TestCachedBookRepository:

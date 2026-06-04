@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from library.shared.application import Clock
-from library.shared.infrastructure import SystemClock
+from library.shared.adapters import SystemClock
+from library.shared.ports import Clock
 
 
 class TestSystemClock:

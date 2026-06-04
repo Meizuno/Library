@@ -15,10 +15,13 @@ from library.member.repositories import (
 )
 from library.notification.email_notifier import EmailNotifier
 from library.notification.ports import Notifier
-from library.shared.application import Clock, PasswordHasher
+from library.shared.adapters import (
+    Argon2PasswordHasher,
+    RedisCache,
+    SystemClock,
+)
 from library.shared.config import Settings
-from library.shared.infrastructure import Argon2PasswordHasher, SystemClock
-from library.shared.infrastructure.cache import Cache, RedisCache
+from library.shared.ports import Cache, Clock, PasswordHasher
 
 
 @lru_cache

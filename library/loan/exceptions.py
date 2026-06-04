@@ -1,4 +1,4 @@
-from library.shared.domain.exceptions import DomainError
+from library.shared.exceptions import DomainError
 
 
 class LoanNotFound(DomainError):

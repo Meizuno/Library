@@ -11,7 +11,7 @@ from library.member.repositories import (
     CachedMemberRepository,
     SqlMemberRepository,
 )
-from library.shared.infrastructure.cache import RedisCache
+from library.shared.adapters import RedisCache
 
 
 class TestProtocolSatisfaction:

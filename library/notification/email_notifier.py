@@ -3,7 +3,7 @@ from email.message import EmailMessage
 import aiosmtplib
 
 from library.notification.models import Notification
-from library.shared.infrastructure.structlog_logger import get_logger
+from library.shared.adapters import get_logger
 
 logger = get_logger(__name__)
 

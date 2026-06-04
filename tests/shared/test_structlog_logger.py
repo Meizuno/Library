@@ -1,5 +1,5 @@
-from library.shared.application import Logger
-from library.shared.infrastructure import get_logger
+from library.shared.adapters import get_logger
+from library.shared.ports import Logger
 
 
 class TestGetLogger:

@@ -14,7 +14,7 @@ from library.loan.use_cases.borrow_book import (
 from library.member.exceptions import MemberNotFound
 from library.member.models import Member
 from library.member.ports import MemberRepository
-from library.shared.application import Clock
+from library.shared.ports import Clock
 
 
 class TestBorrowBookUseCase:

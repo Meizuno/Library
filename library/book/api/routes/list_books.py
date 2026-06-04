@@ -4,7 +4,7 @@ from library.book.api.dependencies import get_list_books_use_case
 from library.book.api.schemas import BookResponse
 from library.book.ports import BookAvailability
 from library.book.use_cases.list_books import ListBooksUseCase
-from library.shared.presentation.api.dependencies import get_book_availability
+from library.shared.api.dependencies import get_book_availability
 
 router = APIRouter(prefix="/books", tags=["books"])
 

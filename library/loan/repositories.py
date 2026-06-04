@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from library.loan.exceptions import LoanNotFound
 from library.loan.models import Loan
 from library.loan.ports import LoanRepository
-from library.shared.infrastructure.sql_metadata import metadata
+from library.shared.adapters import metadata
 
 loans_table = Table(
     "loans",

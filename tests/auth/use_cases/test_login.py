@@ -9,7 +9,7 @@ from library.auth.ports import (
 from library.auth.use_cases.login import LoginCommand, LoginUseCase
 from library.member.models import Member
 from library.member.ports import MemberRepository
-from library.shared.application import Clock
+from library.shared.ports import Clock
 
 
 def _make_use_case(

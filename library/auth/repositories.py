@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from library.auth.exceptions import InvalidAccessToken, RefreshTokenNotFound
 from library.auth.models import RefreshToken
-from library.shared.infrastructure.sql_metadata import metadata
+from library.shared.adapters import metadata
 
 refresh_tokens_table = Table(
     "refresh_tokens",

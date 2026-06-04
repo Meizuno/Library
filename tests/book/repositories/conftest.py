@@ -7,8 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from library.book.models import Book
 from library.book.ports import BookRepository
 from library.book.repositories import CachedBookRepository, SqlBookRepository
-from library.shared.infrastructure import metadata
-from library.shared.infrastructure.cache import InMemoryCache, RedisCache
+from library.shared.adapters import InMemoryCache, RedisCache, metadata
 
 
 @pytest.fixture

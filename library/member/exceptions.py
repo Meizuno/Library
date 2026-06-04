@@ -1,5 +1,4 @@
-from library.shared.application.exceptions import ApplicationError
-from library.shared.domain.exceptions import DomainError
+from library.shared.exceptions import ApplicationError, DomainError
 
 
 class MemberNotFound(DomainError):

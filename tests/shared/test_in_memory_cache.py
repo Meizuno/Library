@@ -1,6 +1,6 @@
 import pytest
 
-from library.shared.infrastructure.cache import InMemoryCache
+from library.shared.adapters import InMemoryCache
 
 
 class TestInMemoryCache:

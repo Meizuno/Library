@@ -8,7 +8,7 @@ from library.book.exceptions import BookNotFound
 from library.book.models import ISBN, Book
 from library.book.ports import BookRepository
 from library.book.repositories import CachedBookRepository, SqlBookRepository
-from library.shared.infrastructure.cache import RedisCache
+from library.shared.adapters import RedisCache
 
 
 class TestProtocolSatisfaction:

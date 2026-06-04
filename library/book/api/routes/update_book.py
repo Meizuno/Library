@@ -10,7 +10,7 @@ from library.book.use_cases.update_book import (
     UpdateBookCommand,
     UpdateBookUseCase,
 )
-from library.shared.presentation.api.dependencies import get_book_availability
+from library.shared.api.dependencies import get_book_availability
 
 
 class BookUpdate(BaseModel):

@@ -13,14 +13,14 @@ from library.auth.repositories import (
 from library.auth.use_cases.login import LoginUseCase
 from library.auth.use_cases.logout import LogoutUseCase
 from library.auth.use_cases.refresh_tokens import RefreshTokensUseCase
-from library.shared.application import Clock
-from library.shared.config import Settings
-from library.shared.presentation.api.dependencies import (
+from library.shared.api.dependencies import (
     get_clock,
     get_credential_verifier,
     get_session,
     get_settings,
 )
+from library.shared.config import Settings
+from library.shared.ports import Clock
 
 
 def get_refresh_token_repo(

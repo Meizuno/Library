@@ -27,12 +27,10 @@ from library.member.exceptions import (
     MemberNotFound,
     MemberNotVerified,
 )
-from library.shared.infrastructure import metadata
+from library.shared.adapters import metadata
+from library.shared.api.dependencies import get_settings
+from library.shared.api.middleware import request_logging_middleware
 from library.shared.logging_config import configure_logging
-from library.shared.presentation.api.dependencies import get_settings
-from library.shared.presentation.api.middleware import (
-    request_logging_middleware,
-)
 
 
 @asynccontextmanager

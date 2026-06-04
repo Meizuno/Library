@@ -25,9 +25,8 @@ from library.member.exceptions import (
 )
 from library.member.models import Email, Member
 from library.member.ports import MemberRepository
-from library.shared.application import PasswordHasher
-from library.shared.infrastructure.cache import Cache
-from library.shared.infrastructure.sql_metadata import metadata
+from library.shared.adapters import metadata
+from library.shared.ports import Cache, PasswordHasher
 
 members_table = Table(
     "members",

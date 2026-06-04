@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from library.book.exceptions import BookNotFound
 from library.book.models import Book
 from library.book.repositories import SqlBookRepository, books_table
-from library.shared.infrastructure import metadata
+from library.shared.adapters import metadata
 
 
 @pytest.fixture

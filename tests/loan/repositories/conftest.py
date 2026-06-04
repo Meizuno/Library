@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from library.loan.models import Loan
 from library.loan.ports import LoanRepository
 from library.loan.repositories import SqlLoanRepository
-from library.shared.infrastructure import metadata
+from library.shared.adapters import metadata
 
 
 @pytest.fixture

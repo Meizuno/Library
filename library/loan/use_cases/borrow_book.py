@@ -8,7 +8,7 @@ from library.loan.models import Loan
 from library.loan.ports import LoanRepository
 from library.member.exceptions import MemberNotFound
 from library.member.ports import MemberRepository
-from library.shared.application import Clock
+from library.shared.ports import Clock
 
 
 @dataclass(frozen=True)

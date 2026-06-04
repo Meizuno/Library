@@ -7,7 +7,7 @@ from library.auth.use_cases.login import LoginCommand, LoginUseCase
 from library.auth.use_cases.logout import LogoutCommand, LogoutUseCase
 from library.member.models import Member
 from library.member.ports import MemberRepository
-from library.shared.application import Clock
+from library.shared.ports import Clock
 
 
 async def _login_and_get_token(

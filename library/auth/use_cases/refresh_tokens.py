@@ -8,7 +8,7 @@ from library.auth.exceptions import (
 )
 from library.auth.models import RefreshToken, TokenPair
 from library.auth.ports import RefreshTokenRepository, TokenIssuer
-from library.shared.application import Clock
+from library.shared.ports import Clock
 
 
 @dataclass(frozen=True)

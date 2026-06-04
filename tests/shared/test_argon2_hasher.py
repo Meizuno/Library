@@ -1,4 +1,4 @@
-from library.shared.infrastructure import Argon2PasswordHasher
+from library.shared.adapters import Argon2PasswordHasher
 
 
 class TestArgon2PasswordHasher:

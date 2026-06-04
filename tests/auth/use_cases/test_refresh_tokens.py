@@ -21,7 +21,7 @@ from library.auth.use_cases.refresh_tokens import (
 )
 from library.member.models import Member
 from library.member.ports import MemberRepository
-from library.shared.application import Clock
+from library.shared.ports import Clock
 from tests.conftest import FakeClock
 
 

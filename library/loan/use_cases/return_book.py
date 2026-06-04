@@ -4,7 +4,7 @@ from uuid import UUID
 from library.loan.exceptions import LoanNotFound
 from library.loan.models import Loan
 from library.loan.ports import LoanRepository
-from library.shared.application import Clock
+from library.shared.ports import Clock
 
 
 @dataclass(frozen=True)

@@ -8,8 +8,8 @@ from library.book.use_cases.delete_book import DeleteBookUseCase
 from library.book.use_cases.list_books import ListBooksUseCase
 from library.book.use_cases.read_book import ReadBookUseCase
 from library.book.use_cases.update_book import UpdateBookUseCase
-from library.shared.infrastructure.cache import Cache
-from library.shared.presentation.api.dependencies import get_cache, get_session
+from library.shared.api.dependencies import get_cache, get_session
+from library.shared.ports import Cache
 
 
 def get_book_repo(

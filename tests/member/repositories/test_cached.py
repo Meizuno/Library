@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 from library.member.models import Email, Member
 from library.member.ports import MemberRepository
 from library.member.repositories import CachedMemberRepository
-from library.shared.infrastructure.cache import InMemoryCache
+from library.shared.adapters import InMemoryCache
 
 
 class TestCachedMemberRepository:

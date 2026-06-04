@@ -9,8 +9,8 @@ from library.loan.use_cases.borrow_book import BorrowBookUseCase
 from library.loan.use_cases.return_book import ReturnBookUseCase
 from library.member.api.dependencies import get_member_repo
 from library.member.ports import MemberRepository
-from library.shared.application import Clock
-from library.shared.presentation.api.dependencies import get_clock, get_session
+from library.shared.api.dependencies import get_clock, get_session
+from library.shared.ports import Clock
 
 
 def get_loan_repo(

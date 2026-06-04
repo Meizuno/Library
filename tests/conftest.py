@@ -55,16 +55,16 @@ from library.member.repositories import (
 )
 from library.notification.models import Notification
 from library.notification.ports import Notifier
-from library.shared.application import Clock, PasswordHasher
-from library.shared.infrastructure import metadata
-from library.shared.presentation.api.dependencies import (
+from library.shared.adapters import metadata
+from library.shared.api.dependencies import (
     get_book_availability,
     get_clock,
     get_credential_verifier,
     get_notifier,
     get_password_hasher,
 )
-from library.shared.presentation.api.main import app
+from library.shared.api.main import app
+from library.shared.ports import Clock, PasswordHasher
 
 
 _TEST_SECRET = "test-secret-key-must-be-at-least-32-bytes-long"
