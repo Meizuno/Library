@@ -12,7 +12,7 @@ from library.member.use_cases.delete_member import DeleteMemberUseCase
 from library.member.use_cases.list_members import ListMembersUseCase
 from library.member.use_cases.read_member import ReadMemberUseCase
 from library.member.use_cases.verify_member import VerifyMemberUseCase
-from library.notification.domain import Notifier
+from library.notification.ports import Notifier
 from library.shared.application import PasswordHasher
 from library.shared.config import Settings
 from library.shared.infrastructure.cache import Cache

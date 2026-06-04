@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from library.notification.domain import Notification
-from library.notification.infrastructure import EmailNotifier
+from library.notification.email_notifier import EmailNotifier
+from library.notification.models import Notification
 
 
 def _make_notifier(**overrides) -> EmailNotifier:
@@ -16,9 +16,7 @@ def _make_notifier(**overrides) -> EmailNotifier:
     return EmailNotifier(**{**defaults, **overrides})
 
 
-_SEND_PATH = (
-    "library.notification.infrastructure.email_notifier.aiosmtplib.send"
-)
+_SEND_PATH = "library.notification.email_notifier.aiosmtplib.send"
 
 
 class TestEmailNotifierFallback:

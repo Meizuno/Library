@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from library.notification.domain.model import Notification
+from library.notification.models import Notification
 
 
 class Notifier(Protocol):

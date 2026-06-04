@@ -53,7 +53,8 @@ from library.member.repositories import (
     PyJWTVerificationTokenIssuer,
     SqlMemberRepository,
 )
-from library.notification.domain import Notification, Notifier
+from library.notification.models import Notification
+from library.notification.ports import Notifier
 from library.shared.application import Clock, PasswordHasher
 from library.shared.infrastructure import metadata
 from library.shared.presentation.api.dependencies import (

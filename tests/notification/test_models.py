@@ -2,7 +2,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from library.notification.domain import Notification
+from library.notification.models import Notification
 
 
 class TestNotification:

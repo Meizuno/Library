@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from library.member.exceptions import MemberAlreadyExists
 from library.member.models import Email, Member, Password
 from library.member.ports import MemberRepository, VerificationTokenIssuer
-from library.notification.domain import Notification, Notifier
+from library.notification.models import Notification
+from library.notification.ports import Notifier
 from library.shared.application import PasswordHasher
 
 

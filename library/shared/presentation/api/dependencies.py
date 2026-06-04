@@ -13,8 +13,8 @@ from library.member.repositories import (
     MemberCredentialVerifier,
     SqlMemberRepository,
 )
-from library.notification.domain import Notifier
-from library.notification.infrastructure import EmailNotifier
+from library.notification.email_notifier import EmailNotifier
+from library.notification.ports import Notifier
 from library.shared.application import Clock, PasswordHasher
 from library.shared.config import Settings
 from library.shared.infrastructure import Argon2PasswordHasher, SystemClock
