@@ -1,4 +1,3 @@
-# pylint: disable=wrong-import-position
 # Env vars must be in place before any library import that may construct
 # `Settings()` (which validates required fields at instantiation time).
 import os

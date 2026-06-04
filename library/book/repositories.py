@@ -132,7 +132,6 @@ class SqlBookRepository:
                 books_table.c.id == book_id,
                 books_table.c.deleted_at.is_(None),
             )
-            # pylint: disable-next=not-callable
             .values(deleted_at=func.now())
             .returning(books_table.c.id)
         )

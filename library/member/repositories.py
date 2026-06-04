@@ -139,7 +139,6 @@ class SqlMemberRepository:
                 members_table.c.id == member_id,
                 members_table.c.deleted_at.is_(None),
             )
-            # pylint: disable-next=not-callable
             .values(deleted_at=func.now())
             .returning(members_table.c.id)
         )
