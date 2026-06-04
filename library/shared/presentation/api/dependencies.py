@@ -5,8 +5,7 @@ from fastapi import Depends, Request
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from library.auth.domain import CredentialVerifier, TokenIssuer
-from library.auth.infrastructure import PyJWTTokenIssuer
+from library.auth.ports import CredentialVerifier
 from library.book.ports import BookAvailability
 from library.loan.repositories import LoanBookAvailability, SqlLoanRepository
 from library.member.repositories import (
@@ -65,16 +64,6 @@ def get_notifier(settings: Settings = Depends(get_settings)) -> Notifier:
         username=settings.smtp_username,
         password=settings.smtp_password,
         use_tls=settings.smtp_use_tls,
-    )
-
-
-def get_token_issuer(
-    settings: Settings = Depends(get_settings),
-) -> TokenIssuer:
-    return PyJWTTokenIssuer(
-        secret_key=settings.jwt_secret_key,
-        algorithm=settings.jwt_algorithm,
-        access_token_ttl_minutes=settings.access_token_ttl_minutes,
     )
 
 

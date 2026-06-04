@@ -5,13 +5,13 @@ from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from library.auth.application import InvalidCredentials
-from library.auth.domain import (
+from library.auth.api import router as auth_router
+from library.auth.exceptions import (
+    InvalidCredentials,
     RefreshTokenExpired,
     RefreshTokenInvalid,
     RefreshTokenRevoked,
 )
-from library.auth.presentation.api.router import router as auth_router
 from library.book.api import router as book_router
 from library.book.exceptions import (
     BookAlreadyExists,

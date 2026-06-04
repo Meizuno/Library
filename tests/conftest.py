@@ -20,19 +20,19 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
-from library.auth.domain import (
+from library.auth.api.dependencies import (
+    get_refresh_token_repo,
+    get_token_issuer,
+)
+from library.auth.api.security import get_current_member, get_verified_member
+from library.auth.ports import (
     CredentialVerifier,
     RefreshTokenRepository,
     TokenIssuer,
 )
-from library.auth.infrastructure import (
+from library.auth.repositories import (
     PyJWTTokenIssuer,
     SqlRefreshTokenRepository,
-)
-from library.auth.presentation.api.dependencies import get_refresh_token_repo
-from library.auth.presentation.api.security import (
-    get_current_member,
-    get_verified_member,
 )
 from library.book.api.dependencies import get_book_repo
 from library.book.models import ISBN, Book
@@ -62,7 +62,6 @@ from library.shared.presentation.api.dependencies import (
     get_credential_verifier,
     get_notifier,
     get_password_hasher,
-    get_token_issuer,
 )
 from library.shared.presentation.api.main import app
 

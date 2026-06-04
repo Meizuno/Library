@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from library.auth.presentation.api.security import get_verified_member
+from library.auth.api.security import get_verified_member
 from library.loan.api.routes import borrow_book, return_book
 
 # /loans actions require BOTH a valid access token AND a verified

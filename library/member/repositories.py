@@ -18,7 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.expression import false as sql_false
 
-from library.auth.application import InvalidCredentials
+from library.auth.exceptions import InvalidCredentials
 from library.member.exceptions import (
     InvalidVerificationToken,
     MemberNotFound,

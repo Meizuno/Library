@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from httpx import AsyncClient
 
-from library.auth.domain import TokenIssuer
+from library.auth.ports import TokenIssuer
 from library.member.ports import VerificationTokenIssuer
 
 

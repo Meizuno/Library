@@ -2,7 +2,7 @@ from uuid import uuid4
 
 import pytest
 
-from library.auth.infrastructure import PyJWTTokenIssuer
+from library.auth.repositories import PyJWTTokenIssuer
 from library.member.exceptions import InvalidVerificationToken
 from library.member.repositories import PyJWTVerificationTokenIssuer
 
