@@ -1,5 +1,5 @@
-from uuid import uuid4
 from unittest.mock import AsyncMock
+from uuid import uuid4
 
 from library.book.models import ISBN, Book
 from library.book.ports import BookRepository

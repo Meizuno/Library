@@ -5,7 +5,6 @@ import pytest
 from library.auth.exceptions import InvalidAccessToken
 from library.auth.repositories import PyJWTTokenIssuer
 
-
 # HS256 requires a key >= 32 bytes; PyJWT emits InsecureKeyLengthWarning
 # below that. We use a 32+ byte test key throughout to keep pytest -W error clean.
 _SECRET = "test-secret-key-must-be-at-least-32-bytes-long"

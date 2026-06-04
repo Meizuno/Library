@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 @dataclass(frozen=True)
 class ISBN:
-    """ISBN-10 або ISBN-13, з нормалізацією (видалення дефісів і пробілів)."""
+    """ISBN-10 or ISBN-13, normalized (dashes and spaces stripped)."""
 
     value: str
 
@@ -14,7 +14,7 @@ class ISBN:
         if not re.fullmatch(r"\d{10}|\d{13}", normalized):
             raise ValueError(f"invalid ISBN: {self.value!r}")
 
-        # frozen — обхід через __setattr__
+        # frozen dataclass — work around the read-only field via __setattr__
         object.__setattr__(self, "value", normalized)
 
     def __str__(self) -> str:

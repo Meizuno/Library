@@ -20,7 +20,6 @@ from sqlalchemy import MetaData
 
 from library.shared.ports import Logger
 
-
 # --- Shared SQLAlchemy metadata --------------------------------------------
 # Every feature's repositories.py registers its Table against this single
 # MetaData instance so `metadata.create_all(...)` builds the whole schema.

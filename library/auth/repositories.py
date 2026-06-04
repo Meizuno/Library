@@ -1,6 +1,6 @@
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -15,6 +15,8 @@ from sqlalchemy import (
     Uuid,
     insert,
     select,
+)
+from sqlalchemy import (
     update as sql_update,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -124,7 +126,7 @@ class PyJWTTokenIssuer:
         self._access_ttl = timedelta(minutes=access_token_ttl_minutes)
 
     def issue_access_token(self, member_id: UUID) -> str:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "sub": str(member_id),
             "iat": int(now.timestamp()),

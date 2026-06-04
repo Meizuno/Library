@@ -36,7 +36,8 @@ class TestVerifyMemberUseCase:
 
         assert result.is_verified is True
         saved = await member_repo.find_by_id(unverified.id)
-        assert saved is not None and saved.is_verified is True
+        assert saved is not None
+        assert saved.is_verified is True
 
     async def test_verify_is_idempotent_no_extra_update(
         self,

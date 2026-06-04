@@ -1,4 +1,4 @@
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import pytest
 from fakeredis import FakeAsyncRedis
@@ -43,6 +43,6 @@ async def member_repo_with_member(
     empty_member_repo: MemberRepository,
     valid_member: Member,
 ) -> MemberRepository:
-    """Repository з одним попередньо збереженим valid_member."""
+    """Repository pre-seeded with valid_member."""
     await empty_member_repo.create(valid_member)
     return empty_member_repo

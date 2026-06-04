@@ -11,7 +11,9 @@ class TokenResponse(BaseModel):
 
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    # "bearer" is the OAuth2 token_type identifier per RFC 6750 §3, not a
+    # secret — ruff's S105 (hardcoded-password) here is a false positive.
+    token_type: str = "bearer"  # noqa: S105
 
     @classmethod
     def from_pair(cls, pair: TokenPair) -> "TokenResponse":

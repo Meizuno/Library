@@ -1,11 +1,11 @@
 ---
 name: verify
-description: Run the full pre-commit verification — tests, lint, spellcheck, security — and report any failures.
+description: Run the full pre-commit verification — tests, lint, types, spell, security — and report any failures.
 ---
 
 # Verify
 
-Run the full pre-commit verification suite for this project. **Do this before declaring work done.** This is the same set CI runs on every push.
+Run the full pre-commit verification suite for this project. **Do this before declaring work done.** Each step below maps 1:1 to a step CI runs on every push; see [.github/workflows/ci.yml](../../../.github/workflows/ci.yml).
 
 ## What to run
 
@@ -17,15 +17,15 @@ Execute in this order, **stop on first failure**:
 pytest -W error
 ```
 
-Expected: **405 passed, 0 warnings**. If a deprecation warning appears, fix it — do NOT silence it with `-W ignore::DeprecationWarning`.
+Expected: **402 passed, 0 warnings**. If a deprecation warning appears, fix it — do NOT silence it with `-W ignore::DeprecationWarning`.
 
-### 2. Linter — must score 10.00/10
+### 2. Linter — must be clean
 
 ```sh
-pylint library tests
+ruff check library tests
 ```
 
-Expected: `Your code has been rated at 10.00/10`. If lower, fix the underlying issue. Do **not** add `# pylint: disable=...` to silence. Acceptable global disables are already in [`pyproject.toml`](../../../pyproject.toml) under `[tool.pylint."messages control"]`.
+Expected: `All checks passed!`. Ruff covers what pylint + bandit used to cover, plus import sorting (I), pyupgrade (UP), and pytest style (PT). Configuration is in [`pyproject.toml`](../../../pyproject.toml) under `[tool.ruff]`. Do **not** add `# noqa: ...` to silence — fix the underlying issue. Acceptable per-line `# noqa: ...` already in the tree carry a comment explaining why (e.g., `setattr` for frozen-dataclass tests where direct assignment fails mypy; OAuth2 `token_type = "bearer"` that S105 misreads as a password).
 
 ### 3. Type checker — must be clean
 
@@ -33,7 +33,7 @@ Expected: `Your code has been rated at 10.00/10`. If lower, fix the underlying i
 mypy library tests
 ```
 
-Expected: `Success: no issues found in 150 source files`. mypy is configured `strict = true` in [`pyproject.toml`](../../../pyproject.toml) under `[tool.mypy]`, with a slightly loosened override for `tests.*` that skips the "missing return annotation on every test function" noise but keeps real correctness signals (union-attr, no-any-return, attr-defined, call-arg). Do **not** add `# type: ignore[...]` to silence — fix the underlying type. Acceptable per-line ignores already in the tree carry a comment explaining why (SQLAlchemy `result.rowcount` on `Result[Any]`, structlog's untyped `BoundLoggerLazyProxy`, deliberately-wrong test inputs around `pytest.raises`).
+Expected: `Success: no issues found in 150 source files`. mypy is configured `strict = true` in [`pyproject.toml`](../../../pyproject.toml) under `[tool.mypy]`, with a slightly loosened override for `tests.*` that skips the "missing return annotation on every test function" noise but keeps real correctness signals (union-attr, no-any-return, attr-defined, call-arg). Do **not** add `# type: ignore[...]` to silence — fix the underlying type.
 
 ### 4. Spellcheck
 
@@ -43,15 +43,7 @@ codespell --skip="*.lock,.git,__pycache__,.venv,*.egg-info,.pytest_cache,.claude
 
 Expected: zero hits. If there's a false positive (technical term), add it to a project codespell ignore list — do NOT comment it out per-line.
 
-### 5. Bandit — code-level security
-
-```sh
-bandit -r library
-```
-
-Expected: no Medium or High severity findings. Low-severity findings (like `B101: assert_used`) in tests are typically fine.
-
-### 6. pip-audit — dependency CVEs
+### 5. pip-audit — dependency CVEs
 
 ```sh
 pip-audit --skip-editable
@@ -59,7 +51,7 @@ pip-audit --skip-editable
 
 Expected: no known vulnerabilities in declared dependencies.
 
-### 7. License audit — no GPL-family
+### 6. License audit — no GPL-family
 
 ```sh
 pip-licenses --fail-on="GPL;LGPL;AGPL"
@@ -69,26 +61,25 @@ Expected: pass. The project intentionally uses only permissively-licensed depend
 
 ## Report format
 
-After running all seven, report to the human:
+After running all six, report to the human:
 
 ```
-✅ pytest:      405/405 passed, 0 warnings
-✅ pylint:      10.00/10
-✅ mypy:        no issues found
-✅ codespell:   clean
-✅ bandit:      no medium/high findings
-✅ pip-audit:   no vulnerabilities
+✅ pytest:       402/402 passed, 0 warnings
+✅ ruff:         all checks passed
+✅ mypy:         no issues found
+✅ codespell:    clean
+✅ pip-audit:    no vulnerabilities
 ✅ pip-licenses: no GPL-family dependencies
 ```
 
 If something failed:
 
 ```
-❌ pytest: 2 failures in tests/loan/application/test_borrow_book.py
+❌ pytest: 2 failures in tests/loan/use_cases/test_borrow_book.py
    - test_borrow_already_borrowed_book: AssertionError ...
    - test_borrow_unverified_member: missing fixture 'verified_member'
 
-⏭️ pylint: skipped (pytest failed)
+⏭️ ruff: skipped (pytest failed)
 ⏭️ ...
 ```
 
@@ -107,27 +98,29 @@ Then **fix the failures** before continuing. Do not suggest "ignoring" or "skipp
 ### `pytest -W error` fails on a deprecation warning
 
 Fix the deprecated usage. Common culprits:
-- `datetime.utcnow()` → `datetime.now(timezone.utc)`
+- `datetime.utcnow()` → `datetime.now(UTC)`
 - `pkg_resources` → `importlib.metadata`
 - `pytest.warns()` without `match=...` argument
 
-### `pylint` scores below 10.00
+### `ruff check` reports an issue
 
-Read the report. Common fixes:
-- `unused-import` — remove the import
-- `too-many-locals` (refactor) — extract a helper function
-- `too-many-arguments` (refactor) — accept a dataclass instead of many params
-- `inconsistent-return-statements` — make all branches return same type
+Read the rule code (e.g., `B008`, `S105`, `PT011`). Common fixes:
+- `F401` (unused-import) — remove the import
+- `B008` (function-call-in-default-argument) — exception already configured for `fastapi.Depends`; if it's a real issue, refactor
+- `S` family (bandit security) — real security finding; fix or document the false positive with `# noqa: S<code>` + explanation
+- `I001` (unsorted-imports) — run `ruff check --fix` to auto-sort
+- `UP` family (pyupgrade) — auto-fixable; modernize the syntax
+- `PT011` (pytest-raises-too-broad) — add `match="..."` to the `pytest.raises(...)` call
 
-If a warning is clearly a false positive (e.g., `protected-access` inside the class's own test), use `# pylint: disable=<rule>` **only on the specific line** with a comment explaining why.
+Per-line `# noqa: <code>` is allowed for genuine false positives but each must carry a one-line comment explaining why.
+
+### `mypy` reports a type error
+
+Read the error code (e.g., `[union-attr]`, `[call-arg]`, `[no-any-return]`). Fix the underlying type — don't paper over with `# type: ignore[...]`. The handful of legitimate ignores in the tree all have inline comments explaining the specific external typing gap (SQLAlchemy stubs, structlog `Any` return, etc.).
 
 ### `codespell` hits a domain term
 
 Add to the project's codespell allow list. Don't ignore inline.
-
-### `bandit` flags an assert in production code
-
-Convert to explicit `raise AssertionError(...)`. Bandit flags `assert` because Python optimizer strips it with `-O`.
 
 ### `pip-audit` finds a vulnerability
 
@@ -143,8 +136,8 @@ Convert to explicit `raise AssertionError(...)`. Bandit flags `assert` because P
 
 ## Do not
 
-- ❌ Skip any of the 7 checks
-- ❌ Add `# pylint: disable=...` or `# type: ignore[...]` to silence a warning rather than fixing it
+- ❌ Skip any of the 6 checks
+- ❌ Add `# noqa: ...` or `# type: ignore[...]` to silence rather than fixing
 - ❌ Add `-W ignore` to pytest to mask warnings
 - ❌ Declare a task done with any check failing
 - ❌ Run only the first check that passes and call it good — the suite is a chain

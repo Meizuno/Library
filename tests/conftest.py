@@ -11,9 +11,9 @@ os.environ.setdefault(
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import AsyncGenerator
 from uuid import uuid4
 
 import pytest
@@ -65,7 +65,6 @@ from library.shared.api.dependencies import (
 )
 from library.shared.api.main import app
 from library.shared.ports import Clock, PasswordHasher
-
 
 _TEST_SECRET = "test-secret-key-must-be-at-least-32-bytes-long"
 

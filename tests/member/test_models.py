@@ -1,9 +1,9 @@
+from dataclasses import FrozenInstanceError
 from uuid import UUID, uuid4
 
 import pytest
 
 from library.member.models import Email, Member, Password
-
 
 _HASH = "hashed:password"
 
@@ -60,8 +60,9 @@ class TestPassword:
 
     def test_password_is_frozen(self):
         pw = Password("correcthorse")
-        with pytest.raises(Exception):
-            setattr(pw, "value", "other")
+        with pytest.raises(FrozenInstanceError):
+            # See test_immutable_isbn for why setattr (not direct assign).
+            setattr(pw, "value", "other")  # noqa: B010
 
 
 class TestMember:
@@ -95,13 +96,13 @@ class TestMember:
             Member(name="Name", email=valid_email, password_hash="")
 
     def test_member_is_hashable(self, valid_email):
-        """__hash__ працює — Member можна покласти в set/dict."""
+        """__hash__ works — Member can be placed in a set/dict."""
         member = Member(name="X", email=valid_email, password_hash=_HASH)
         s = {member}
         assert member in s
 
     def test_members_with_same_id_share_hash(self, valid_email):
-        """Два Member з однаковим id мають однаковий hash."""
+        """Two Members with the same id share a hash."""
         shared_id = uuid4()
         m_1 = Member(name="A", email=valid_email, password_hash=_HASH)
         m_2 = Member(name="B", email=valid_email, password_hash=_HASH)

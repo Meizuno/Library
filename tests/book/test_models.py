@@ -47,7 +47,9 @@ class TestISBN:
     def test_immutable_isbn(self):
         valid_isbn = ISBN("978-3-16-148410-0")
         with pytest.raises(FrozenInstanceError):
-            setattr(valid_isbn, "value", "978-3-16-148410-0")
+            # Direct assignment fails mypy's read-only check on frozen
+            # dataclasses; setattr probes the runtime guard instead.
+            setattr(valid_isbn, "value", "978-3-16-148410-0")  # noqa: B010
 
     def test_equal_isbn(self):
         valid_isbn = ISBN("9783161484100")
@@ -75,13 +77,14 @@ class TestBook:
         assert book.isbn.value == valid_isbn.value
 
     def test_each_book_has_unique_id(self, valid_isbn):
-        """UUID генерується автоматично — два Book ніколи не співпадають за id."""
+        """UUID is auto-generated — two Books never share an id."""
         book_1 = Book(title="X", author="Y", isbn=valid_isbn)
         book_2 = Book(title="X", author="Y", isbn=valid_isbn)
         assert book_1.id != book_2.id
 
     def test_book_id_can_be_set_after_construction(self, valid_isbn):
-        """id ховається від __init__, але mutable — Repository може його замінити при load з БД."""
+        """id is excluded from __init__ but mutable — the repository
+        replaces it when hydrating a Book from the database."""
         custom_id = uuid4()
         book = Book(title="X", author="Y", isbn=valid_isbn)
         book.id = custom_id
@@ -106,7 +109,8 @@ class TestBook:
         assert book.author == "New Author"
 
     def test_equal_books_when_id_shared(self, valid_isbn):
-        """Два Book з однаковим id І полями — рівні (id присвоюється після створення)."""
+        """Two Books with the same id AND fields are equal (id is assigned
+        post-construction)."""
         shared_id = uuid4()
         book_1 = Book(title="Title", author="Author", isbn=valid_isbn)
         book_2 = Book(title="Title", author="Author", isbn=valid_isbn)
@@ -115,19 +119,19 @@ class TestBook:
         assert book_1 == book_2
 
     def test_non_equal_books_by_id(self, valid_isbn):
-        """Два Book з різними id (auto-generated) — НЕ рівні."""
+        """Two Books with different (auto-generated) ids are NOT equal."""
         book_1 = Book(title="Title", author="Author", isbn=valid_isbn)
         book_2 = Book(title="Title", author="Author", isbn=valid_isbn)
         assert book_1 != book_2
 
     def test_book_is_hashable(self, valid_isbn):
-        """__hash__ працює — Book можна покласти в set/dict."""
+        """__hash__ works — Book can be placed in a set/dict."""
         book = Book(title="X", author="Y", isbn=valid_isbn)
         s = {book}
         assert book in s
 
     def test_books_with_same_id_share_hash(self, valid_isbn):
-        """Два Book з однаковим id мають однаковий hash — дедуплікація в set."""
+        """Two Books with the same id share a hash — set deduplicates them."""
         shared_id = uuid4()
         book_1 = Book(title="X", author="Y", isbn=valid_isbn)
         book_2 = Book(title="Z", author="W", isbn=valid_isbn)

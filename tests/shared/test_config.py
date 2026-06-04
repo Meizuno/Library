@@ -5,7 +5,6 @@ from pydantic import ValidationError
 
 from library.shared.config import Settings
 
-
 _VALID_SECRET = "x" * 32  # exactly the HS256 minimum
 
 _VALID_KWARGS: dict[str, Any] = {

@@ -43,7 +43,7 @@ async def _login(
 class TestRefreshTokensUseCase:
     async def test_refresh_returns_new_pair(
         self,
-        member_repo_with_member: MemberRepository,  # noqa: ARG002 — seeds member
+        member_repo_with_member: MemberRepository,
         credential_verifier: CredentialVerifier,
         refresh_token_repo: RefreshTokenRepository,
         token_issuer: TokenIssuer,
@@ -70,11 +70,13 @@ class TestRefreshTokensUseCase:
         )
 
         assert new_pair.refresh_token != pair.refresh_token
-        assert new_pair.access_token  # may equal old if clock didn't advance — content is opaque
+        # may equal the old one if the FakeClock didn't advance — the
+        # access-token string content is opaque, only its validity matters
+        assert new_pair.access_token
 
     async def test_refresh_revokes_old_refresh_token(
         self,
-        member_repo_with_member: MemberRepository,  # noqa: ARG002
+        member_repo_with_member: MemberRepository,
         credential_verifier: CredentialVerifier,
         refresh_token_repo: RefreshTokenRepository,
         token_issuer: TokenIssuer,

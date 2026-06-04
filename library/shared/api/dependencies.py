@@ -1,5 +1,6 @@
+from collections.abc import AsyncGenerator
 from functools import lru_cache
-from typing import AsyncGenerator, cast
+from typing import cast
 
 from fastapi import Depends, Request
 from redis.asyncio import Redis

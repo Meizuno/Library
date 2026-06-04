@@ -1,5 +1,5 @@
-from uuid import uuid4
 from unittest.mock import AsyncMock
+from uuid import uuid4
 
 from library.member.models import Email, Member
 from library.member.ports import MemberRepository

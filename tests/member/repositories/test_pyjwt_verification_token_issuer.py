@@ -6,7 +6,6 @@ from library.auth.repositories import PyJWTTokenIssuer
 from library.member.exceptions import InvalidVerificationToken
 from library.member.repositories import PyJWTVerificationTokenIssuer
 
-
 _SECRET = "test-secret-key-must-be-at-least-32-bytes-long"
 _OTHER_SECRET = "another-test-secret-key-with-32-plus-bytes-padding"
 

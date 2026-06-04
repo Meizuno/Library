@@ -29,7 +29,7 @@ async def _login_and_get_token(
 class TestLogoutUseCase:
     async def test_logout_revokes_refresh_token(
         self,
-        member_repo_with_member: MemberRepository,  # noqa: ARG002 — seeds member
+        member_repo_with_member: MemberRepository,
         credential_verifier: CredentialVerifier,
         refresh_token_repo: RefreshTokenRepository,
         token_issuer: TokenIssuer,
@@ -69,7 +69,7 @@ class TestLogoutUseCase:
 
     async def test_logout_is_idempotent(
         self,
-        member_repo_with_member: MemberRepository,  # noqa: ARG002
+        member_repo_with_member: MemberRepository,
         credential_verifier: CredentialVerifier,
         refresh_token_repo: RefreshTokenRepository,
         token_issuer: TokenIssuer,

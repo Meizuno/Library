@@ -6,7 +6,7 @@ SQL-impl-specific guarantee that delete is *soft* (the row stays present
 with `deleted_at` stamped) plus the secondary guarantees that follow
 from it.
 """
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import pytest
 from sqlalchemy import select

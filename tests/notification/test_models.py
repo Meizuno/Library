@@ -23,7 +23,9 @@ class TestNotification:
     def test_is_frozen(self):
         n = Notification(subject="s", body="b")
         with pytest.raises(FrozenInstanceError):
-            setattr(n, "body", "new")
+            # See tests/book/test_models.py::test_immutable_isbn for the
+            # mypy/setattr rationale.
+            setattr(n, "body", "new")  # noqa: B010
 
     def test_equality_by_value(self):
         a = Notification(subject="s", body="b")

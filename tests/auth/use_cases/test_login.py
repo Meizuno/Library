@@ -55,7 +55,7 @@ class TestLoginUseCase:
 
     async def test_login_persists_hashed_refresh_token(
         self,
-        member_repo_with_member: MemberRepository,  # noqa: ARG002
+        member_repo_with_member: MemberRepository,
         credential_verifier: CredentialVerifier,
         refresh_token_repo: RefreshTokenRepository,
         token_issuer: TokenIssuer,
@@ -82,7 +82,7 @@ class TestLoginUseCase:
 
     async def test_login_wrong_password_raises(
         self,
-        member_repo_with_member: MemberRepository,  # noqa: ARG002
+        member_repo_with_member: MemberRepository,
         credential_verifier: CredentialVerifier,
         refresh_token_repo: RefreshTokenRepository,
         token_issuer: TokenIssuer,

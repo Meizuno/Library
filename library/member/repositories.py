@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -14,6 +14,8 @@ from sqlalchemy import (
     func,
     insert,
     select,
+)
+from sqlalchemy import (
     update as sql_update,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -267,7 +269,7 @@ class PyJWTVerificationTokenIssuer:
         self._ttl = timedelta(hours=ttl_hours)
 
     def issue(self, member_id: UUID) -> str:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "sub": str(member_id),
             "purpose": _VERIFY_EMAIL_PURPOSE,

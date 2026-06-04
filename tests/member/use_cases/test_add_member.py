@@ -9,7 +9,6 @@ from library.member.use_cases.add_member import (
 from library.shared.ports import PasswordHasher
 from tests.conftest import FakeNotifier
 
-
 _APP_BASE_URL = "http://localhost:8000"
 
 

@@ -8,7 +8,7 @@ stamped — and the related secondary guarantees (find_by_isbn skips
 soft-deleted rows, update on a soft-deleted row raises, double-delete
 raises).
 """
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import pytest
 from sqlalchemy import select
