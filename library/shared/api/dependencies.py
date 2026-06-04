@@ -14,15 +14,18 @@ from library.member.repositories import (
     MemberCredentialVerifier,
     SqlMemberRepository,
 )
-from library.notification.email_notifier import EmailNotifier
-from library.notification.ports import Notifier
 from library.shared.adapters import (
     Argon2PasswordHasher,
     RedisCache,
     SystemClock,
 )
 from library.shared.config import Settings
-from library.shared.ports import Cache, Clock, PasswordHasher
+from library.shared.ports import (
+    Cache,
+    Clock,
+    EventPublisher,
+    PasswordHasher,
+)
 
 
 @lru_cache
@@ -62,15 +65,15 @@ def get_password_hasher() -> PasswordHasher:
     return Argon2PasswordHasher()
 
 
-def get_notifier(settings: Settings = Depends(get_settings)) -> Notifier:
-    return EmailNotifier(
-        smtp_host=settings.smtp_host,
-        smtp_port=settings.smtp_port,
-        sender=settings.smtp_from,
-        username=settings.smtp_username,
-        password=settings.smtp_password,
-        use_tls=settings.smtp_use_tls,
-    )
+def get_event_publisher(request: Request) -> EventPublisher:
+    """Resolve the application-scoped event bus stashed on `app.state`
+    during lifespan startup. The bus is a singleton (its subscriber
+    registry is wired once at startup); requests share it via this
+    provider.
+
+    See `library.shared.api.main.lifespan` for the registration site.
+    """
+    return cast(EventPublisher, request.app.state.event_bus)
 
 
 def get_credential_verifier(

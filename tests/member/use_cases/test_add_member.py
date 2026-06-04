@@ -1,30 +1,40 @@
+from dataclasses import dataclass, field
+
 import pytest
 
+from library.member.events import MemberRegistered
 from library.member.exceptions import MemberAlreadyExists
-from library.member.ports import MemberRepository, VerificationTokenIssuer
+from library.member.ports import MemberRepository
 from library.member.use_cases.add_member import (
     AddMemberCommand,
     AddMemberUseCase,
 )
 from library.shared.ports import PasswordHasher
-from tests.conftest import FakeNotifier
 
-_APP_BASE_URL = "http://localhost:8000"
+
+@dataclass
+class FakeEventPublisher:
+    """Records every published event. Tests assert against `.published`
+    to verify the use case emitted the expected event(s) without wiring
+    up real subscribers."""
+
+    published: list[object] = field(default_factory=list)
+
+    async def publish(self, event: object) -> None:
+        self.published.append(event)
+
+
+@pytest.fixture
+def event_publisher() -> FakeEventPublisher:
+    return FakeEventPublisher()
 
 
 def _make_use_case(
     member_repo: MemberRepository,
     password_hasher: PasswordHasher,
-    notifier: FakeNotifier,
-    verification_token_issuer: VerificationTokenIssuer,
+    event_publisher: FakeEventPublisher,
 ) -> AddMemberUseCase:
-    return AddMemberUseCase(
-        member_repo,
-        password_hasher,
-        notifier,
-        verification_token_issuer,
-        _APP_BASE_URL,
-    )
+    return AddMemberUseCase(member_repo, password_hasher, event_publisher)
 
 
 class TestAddMemberUseCase:
@@ -33,11 +43,10 @@ class TestAddMemberUseCase:
         member_command: AddMemberCommand,
         member_repo: MemberRepository,
         password_hasher: PasswordHasher,
-        notifier: FakeNotifier,
-        verification_token_issuer: VerificationTokenIssuer,
+        event_publisher: FakeEventPublisher,
     ):
         use_case = _make_use_case(
-            member_repo, password_hasher, notifier, verification_token_issuer
+            member_repo, password_hasher, event_publisher
         )
         member = await use_case.execute(member_command)
         assert member == await member_repo.find_by_id(member.id)
@@ -46,66 +55,56 @@ class TestAddMemberUseCase:
         # New members are not yet verified.
         assert member.is_verified is False
 
-    async def test_add_member_welcome_email_contains_verification_link(
+    async def test_publishes_member_registered_with_correct_payload(
         self,
         member_command: AddMemberCommand,
         member_repo: MemberRepository,
         password_hasher: PasswordHasher,
-        notifier: FakeNotifier,
-        verification_token_issuer: VerificationTokenIssuer,
+        event_publisher: FakeEventPublisher,
     ):
+        # The use case knows nothing about email — it just emits the
+        # fact of registration. The notification subscriber (covered in
+        # tests/notification/test_subscribers.py) turns the fact into
+        # an email; this test only asserts the publishing side.
         use_case = _make_use_case(
-            member_repo, password_hasher, notifier, verification_token_issuer
+            member_repo, password_hasher, event_publisher
         )
         member = await use_case.execute(member_command)
 
-        assert len(notifier.sent) == 1
-        welcome = notifier.sent[0]
-        assert welcome.recipient == member.email.value
-        assert "Welcome" in welcome.notification.subject
-        assert member.name in welcome.notification.body
-
-        # The body contains a clickable verification URL of the form
-        # `{app_base_url}/members/verify?token=<JWT>`. Extract it and
-        # confirm the token decodes back to this member's id.
-        body = welcome.notification.body
-        urls = [
-            word
-            for word in body.split()
-            if word.startswith(f"{_APP_BASE_URL}/members/verify?token=")
+        assert event_publisher.published == [
+            MemberRegistered(
+                member_id=member.id,
+                name=member.name,
+                email=member.email.value,
+            )
         ]
-        assert len(urls) == 1
-        token = urls[0].split("token=", 1)[1]
-        assert verification_token_issuer.verify(token) == member.id
 
-    async def test_add_member_duplicate_does_not_send_extra_email(
+    async def test_add_member_duplicate_does_not_publish_extra_event(
         self,
         member_command: AddMemberCommand,
         member_repo: MemberRepository,
         password_hasher: PasswordHasher,
-        notifier: FakeNotifier,
-        verification_token_issuer: VerificationTokenIssuer,
+        event_publisher: FakeEventPublisher,
     ):
         use_case = _make_use_case(
-            member_repo, password_hasher, notifier, verification_token_issuer
+            member_repo, password_hasher, event_publisher
         )
         await use_case.execute(member_command)
 
         with pytest.raises(MemberAlreadyExists):
             await use_case.execute(member_command)
 
-        # Only the first (successful) registration sent an email.
-        assert len(notifier.sent) == 1
+        # Only the first (successful) registration emitted an event.
+        assert len(event_publisher.published) == 1
 
     async def test_add_member_non_valid_name(
         self,
         member_repo: MemberRepository,
         password_hasher: PasswordHasher,
-        notifier: FakeNotifier,
-        verification_token_issuer: VerificationTokenIssuer,
+        event_publisher: FakeEventPublisher,
     ):
         use_case = _make_use_case(
-            member_repo, password_hasher, notifier, verification_token_issuer
+            member_repo, password_hasher, event_publisher
         )
         with pytest.raises(ValueError):
             await use_case.execute(
@@ -113,17 +112,16 @@ class TestAddMemberUseCase:
                     name="", email="user@example.com", password="password"
                 )
             )
-        assert notifier.sent == []
+        assert event_publisher.published == []
 
     async def test_add_member_non_valid_email(
         self,
         member_repo: MemberRepository,
         password_hasher: PasswordHasher,
-        notifier: FakeNotifier,
-        verification_token_issuer: VerificationTokenIssuer,
+        event_publisher: FakeEventPublisher,
     ):
         use_case = _make_use_case(
-            member_repo, password_hasher, notifier, verification_token_issuer
+            member_repo, password_hasher, event_publisher
         )
         with pytest.raises(ValueError):
             await use_case.execute(
@@ -131,17 +129,16 @@ class TestAddMemberUseCase:
                     name="Name", email="not-an-email", password="password"
                 )
             )
-        assert notifier.sent == []
+        assert event_publisher.published == []
 
     async def test_add_member_short_password_raises(
         self,
         member_repo: MemberRepository,
         password_hasher: PasswordHasher,
-        notifier: FakeNotifier,
-        verification_token_issuer: VerificationTokenIssuer,
+        event_publisher: FakeEventPublisher,
     ):
         use_case = _make_use_case(
-            member_repo, password_hasher, notifier, verification_token_issuer
+            member_repo, password_hasher, event_publisher
         )
         with pytest.raises(ValueError, match="password must be at least"):
             await use_case.execute(
@@ -149,4 +146,4 @@ class TestAddMemberUseCase:
                     name="Name", email="user@example.com", password="short"
                 )
             )
-        assert notifier.sent == []
+        assert event_publisher.published == []

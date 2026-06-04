@@ -8,8 +8,9 @@ impl, etc.). Cache has two impls (Redis + in-memory) but they're tiny
 and pair naturally with the Cache Protocol they implement.
 """
 from collections import OrderedDict
+from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import cast
+from typing import Any, cast
 
 import structlog
 from argon2 import PasswordHasher as _Argon2
@@ -134,3 +135,59 @@ class RedisCache:
             _redis_logger.warning(
                 "redis_delete_failed", key=key, error=str(exc)
             )
+
+
+# --- Event bus -------------------------------------------------------------
+_event_bus_logger = get_logger("library.shared.adapters.event_bus")
+
+
+class InProcessEventBus:
+    """Synchronous in-process pub/sub for domain events.
+
+    Handlers are dispatched in registration order on the publishing
+    coroutine. Each handler is awaited inside a try/except — a failing
+    handler is logged at exception level but does NOT propagate to the
+    publisher. This is the canonical EDA tradeoff: the publishing
+    command (e.g. AddMemberUseCase) succeeds even if a downstream
+    side-effect (e.g. sending email) fails.
+
+    Suitable for a study/template project. A production system would
+    back this with an outbox table (events persisted in the same
+    transaction as the command's state changes) plus a worker that
+    retries until delivery succeeds.
+
+    `subscribe` is intentionally NOT on the EventPublisher port — only
+    the composition root (lifespan wiring in
+    `library.shared.api.main`) registers handlers; use cases see the
+    narrow publish-only interface.
+    """
+
+    def __init__(self) -> None:
+        self._handlers: dict[
+            type, list[Callable[[Any], Awaitable[None]]]
+        ] = {}
+
+    def subscribe[T](
+        self,
+        event_type: type[T],
+        handler: Callable[[T], Awaitable[None]],
+    ) -> None:
+        # The dict is heterogeneous (one entry per event type), so we
+        # store handlers under their concrete type and cast away the
+        # type-parameter at the boundary. Dispatch in `publish` uses
+        # `type(event)` to find the matching slot, so the runtime types
+        # always line up with what was registered here.
+        self._handlers.setdefault(event_type, []).append(
+            cast(Callable[[Any], Awaitable[None]], handler)
+        )
+
+    async def publish(self, event: object) -> None:
+        for handler in self._handlers.get(type(event), []):
+            try:
+                await handler(event)
+            except Exception:
+                _event_bus_logger.exception(
+                    "event_handler_failed",
+                    event_type=type(event).__name__,
+                    handler=getattr(handler, "__qualname__", repr(handler)),
+                )

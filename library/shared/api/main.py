@@ -22,13 +22,19 @@ from library.book.exceptions import (
 from library.loan.api import router as loan_router
 from library.loan.exceptions import LoanNotFound
 from library.member.api import router as member_router
+from library.member.events import MemberRegistered
 from library.member.exceptions import (
     InvalidVerificationToken,
     MemberAlreadyExists,
     MemberNotFound,
     MemberNotVerified,
 )
-from library.shared.adapters import metadata
+from library.member.repositories import PyJWTVerificationTokenIssuer
+from library.notification.email_notifier import EmailNotifier
+from library.notification.subscribers import (
+    SendVerificationEmailOnRegistration,
+)
+from library.shared.adapters import InProcessEventBus, metadata
 from library.shared.api.dependencies import get_settings
 from library.shared.api.middleware import request_logging_middleware
 from library.shared.logging_config import configure_logging
@@ -45,6 +51,35 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.redis = Redis.from_url(settings.redis_url)
     async with app.state.engine.begin() as conn:
         await conn.run_sync(metadata.create_all)
+
+    # --- Composition root: event bus + subscribers ------------------
+    # The bus is constructed once and stashed on app.state for
+    # request-scoped DI to read. Subscribers depend on stateless
+    # singletons (EmailNotifier, PyJWTVerificationTokenIssuer) so it's
+    # safe to build them here at startup; per-request providers in
+    # member/api/dependencies.py keep VerificationTokenIssuer wired for
+    # the verify flow.
+    event_bus = InProcessEventBus()
+    event_bus.subscribe(
+        MemberRegistered,
+        SendVerificationEmailOnRegistration(
+            notifier=EmailNotifier(
+                smtp_host=settings.smtp_host,
+                smtp_port=settings.smtp_port,
+                sender=settings.smtp_from,
+                username=settings.smtp_username,
+                password=settings.smtp_password,
+                use_tls=settings.smtp_use_tls,
+            ),
+            verification_tokens=PyJWTVerificationTokenIssuer(
+                secret_key=settings.jwt_secret_key,
+                algorithm=settings.jwt_algorithm,
+                ttl_hours=settings.verification_token_ttl_hours,
+            ),
+            app_base_url=settings.app_base_url,
+        ),
+    )
+    app.state.event_bus = event_bus
 
     yield
 

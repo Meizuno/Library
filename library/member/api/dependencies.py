@@ -12,16 +12,15 @@ from library.member.use_cases.delete_member import DeleteMemberUseCase
 from library.member.use_cases.list_members import ListMembersUseCase
 from library.member.use_cases.read_member import ReadMemberUseCase
 from library.member.use_cases.verify_member import VerifyMemberUseCase
-from library.notification.ports import Notifier
 from library.shared.api.dependencies import (
     get_cache,
-    get_notifier,
+    get_event_publisher,
     get_password_hasher,
     get_session,
     get_settings,
 )
 from library.shared.config import Settings
-from library.shared.ports import Cache, PasswordHasher
+from library.shared.ports import Cache, EventPublisher, PasswordHasher
 
 
 def get_member_repo(
@@ -44,19 +43,9 @@ def get_verification_token_issuer(
 def get_add_member_use_case(
     member_repo: MemberRepository = Depends(get_member_repo),
     hasher: PasswordHasher = Depends(get_password_hasher),
-    notifier: Notifier = Depends(get_notifier),
-    verification_tokens: VerificationTokenIssuer = Depends(
-        get_verification_token_issuer
-    ),
-    settings: Settings = Depends(get_settings),
+    event_publisher: EventPublisher = Depends(get_event_publisher),
 ) -> AddMemberUseCase:
-    return AddMemberUseCase(
-        member_repo,
-        hasher,
-        notifier,
-        verification_tokens,
-        settings.app_base_url,
-    )
+    return AddMemberUseCase(member_repo, hasher, event_publisher)
 
 
 def get_read_member_use_case(

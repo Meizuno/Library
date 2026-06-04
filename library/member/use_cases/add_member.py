@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 
+from library.member.events import MemberRegistered
 from library.member.exceptions import MemberAlreadyExists
 from library.member.models import Email, Member, Password
-from library.member.ports import MemberRepository, VerificationTokenIssuer
-from library.notification.models import Notification
-from library.notification.ports import Notifier
-from library.shared.ports import PasswordHasher
+from library.member.ports import MemberRepository
+from library.shared.ports import EventPublisher, PasswordHasher
 
 
 @dataclass(frozen=True)
@@ -15,32 +14,26 @@ class AddMemberCommand:
     password: str
 
 
-_WELCOME_SUBJECT = "Welcome to the library"
-_WELCOME_BODY_TEMPLATE = (
-    "Hi {name},\n\n"
-    "Your library account is ready. Verify your email by opening this link\n"
-    "(it includes a single-use token; the verify flow accepts the token\n"
-    "via POST /members/verify):\n\n"
-    "{link}\n\n"
-    "The link expires in 24 hours.\n\n"
-    "Happy reading!"
-)
-
-
 class AddMemberUseCase:
+    """Register a new member and emit a MemberRegistered event.
+
+    The use case knows nothing about email, verification tokens, or
+    notification channels — that's the whole point of the event bus.
+    Subscribers (see library.notification.subscribers) react to the
+    event and produce their own side effects. A handler failure does
+    not roll back the registration: the InProcessEventBus catches and
+    logs.
+    """
+
     def __init__(
         self,
         member_repo: MemberRepository,
         hasher: PasswordHasher,
-        notifier: Notifier,
-        verification_tokens: VerificationTokenIssuer,
-        app_base_url: str,
+        event_publisher: EventPublisher,
     ):
         self._member_repo = member_repo
         self._hasher = hasher
-        self._notifier = notifier
-        self._verification_tokens = verification_tokens
-        self._app_base_url = app_base_url.rstrip("/")
+        self._event_publisher = event_publisher
 
     async def execute(self, command: AddMemberCommand) -> Member:
         email = Email(command.email)
@@ -57,15 +50,11 @@ class AddMemberUseCase:
         )
         await self._member_repo.create(member)
 
-        token = self._verification_tokens.issue(member.id)
-        link = f"{self._app_base_url}/members/verify?token={token}"
-        await self._notifier.send(
-            recipient=member.email.value,
-            notification=Notification(
-                subject=_WELCOME_SUBJECT,
-                body=_WELCOME_BODY_TEMPLATE.format(
-                    name=member.name, link=link
-                ),
-            ),
+        await self._event_publisher.publish(
+            MemberRegistered(
+                member_id=member.id,
+                name=member.name,
+                email=member.email.value,
+            )
         )
         return member
