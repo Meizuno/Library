@@ -9,7 +9,7 @@ class ISBN:
 
     value: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         normalized = self.value.replace("-", "").replace(" ", "")
         if not re.fullmatch(r"\d{10}|\d{13}", normalized):
             raise ValueError(f"invalid ISBN: {self.value!r}")
@@ -29,7 +29,7 @@ class Book:
     isbn: ISBN
     description: str = ""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.validate()
 
     def validate(self) -> None:
@@ -43,10 +43,10 @@ class Book:
         if not self.author:
             raise ValueError("author cannot be empty")
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Book):
             return NotImplemented
         return self.id == other.id
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.id)

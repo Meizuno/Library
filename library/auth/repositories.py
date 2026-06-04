@@ -1,6 +1,7 @@
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from uuid import UUID
 
 import jwt
@@ -47,7 +48,7 @@ class SqlRefreshTokenRepository:
     def __init__(self, session: AsyncSession):
         self._session = session
 
-    def _row_to_token(self, row) -> RefreshToken:
+    def _row_to_token(self, row: Any) -> RefreshToken:
         token = RefreshToken(
             member_id=row.member_id,
             token_hash=row.token_hash,
@@ -77,9 +78,10 @@ class SqlRefreshTokenRepository:
                 expires_at=token.expires_at,
                 revoked_at=token.revoked_at,
             )
+            .returning(refresh_tokens_table.c.id)
         )
         result = await self._session.execute(stmt)
-        if result.rowcount == 0:
+        if result.scalar_one_or_none() is None:
             raise RefreshTokenNotFound(f"RefreshToken {token.id} not found")
 
     async def find_by_hash(self, token_hash: str) -> RefreshToken | None:

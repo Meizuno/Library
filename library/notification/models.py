@@ -19,6 +19,6 @@ class Notification:
     subject: str
     body: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.body:
             raise ValueError("body cannot be empty")

@@ -90,6 +90,7 @@ class TestMemberRepository:
         valid_member.name = "Updated name"
         await member_repo_with_member.update(valid_member)
         saved_member = await member_repo_with_member.find_by_id(valid_member.id)
+        assert saved_member is not None
         assert saved_member.name == "Updated name"
 
     async def test_is_verified_round_trips(
@@ -107,12 +108,14 @@ class TestMemberRepository:
         )
         await empty_member_repo.create(unverified)
         saved = await empty_member_repo.find_by_id(unverified.id)
+        assert saved is not None
         assert saved.is_verified is False
 
         # Update flips it; persisted value comes back true.
         unverified.mark_verified()
         await empty_member_repo.update(unverified)
         saved = await empty_member_repo.find_by_id(unverified.id)
+        assert saved is not None
         assert saved.is_verified is True
 
     async def test_update_unsaved_member_raises(
@@ -126,7 +129,7 @@ class TestMemberRepository:
         member_repo_with_member: MemberRepository,
         valid_member: Member,
     ):
-        assert await member_repo_with_member.delete(valid_member.id) is None
+        await member_repo_with_member.delete(valid_member.id)
         assert await member_repo_with_member.list_all() == []
 
     async def test_delete_unsaved_member(

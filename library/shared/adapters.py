@@ -8,11 +8,12 @@ impl, etc.). Cache has two impls (Redis + in-memory) but they're tiny
 and pair naturally with the Cache Protocol they implement.
 """
 from collections import OrderedDict
+from datetime import datetime
+from typing import cast
 
 import structlog
 from argon2 import PasswordHasher as _Argon2
 from argon2.exceptions import Argon2Error, InvalidHashError
-from datetime import datetime
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 from sqlalchemy import MetaData
@@ -72,7 +73,10 @@ def get_logger(name: str) -> Logger:
     `library.shared.logging_config.configure_logging` and the HTTP
     middleware.
     """
-    return structlog.get_logger(name)
+    # structlog's stubs say get_logger returns Any (the lazy proxy is hard
+    # to type precisely); cast back to the Logger Protocol it structurally
+    # satisfies after first .bind() or method call.
+    return cast(Logger, structlog.get_logger(name))
 
 
 # --- Cache -----------------------------------------------------------------

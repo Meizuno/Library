@@ -12,18 +12,18 @@ class Loan:
     due_at: datetime
     returned_at: datetime | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.due_at < self.loaned_at:
             raise ValueError("due_at must be on or after loaned_at")
         if self.returned_at is not None and self.returned_at < self.loaned_at:
             raise ValueError("returned_at must be on or after loaned_at")
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Loan):
             return NotImplemented
         return self.id == other.id
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.id)
 
     @property

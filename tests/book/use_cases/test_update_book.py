@@ -30,6 +30,7 @@ class TestUpdateBookUseCase:
         assert updated.author == "New Author"
         assert updated.description == "A new description"
         saved = await book_repo_with_book.find_by_id(valid_book.id)
+        assert saved is not None
         assert saved.title == "New Title"
         assert saved.author == "New Author"
         assert saved.description == "A new description"

@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
@@ -53,7 +54,7 @@ class SqlLoanRepository:
     def __init__(self, session: AsyncSession):
         self._session = session
 
-    def _row_to_loan(self, row) -> Loan:
+    def _row_to_loan(self, row: Any) -> Loan:
         loan = Loan(
             book_id=row.book_id,
             member_id=row.member_id,
@@ -86,9 +87,10 @@ class SqlLoanRepository:
                 due_at=loan.due_at,
                 returned_at=loan.returned_at,
             )
+            .returning(loans_table.c.id)
         )
         result = await self._session.execute(stmt)
-        if result.rowcount == 0:
+        if result.scalar_one_or_none() is None:
             raise LoanNotFound(f"Loan {loan.id} not found")
 
     async def find_by_id(self, loan_id: UUID) -> Loan | None:
@@ -121,9 +123,13 @@ class SqlLoanRepository:
         return [self._row_to_loan(row) for row in rows]
 
     async def delete(self, loan_id: UUID) -> None:
-        stmt = delete(loans_table).where(loans_table.c.id == loan_id)
+        stmt = (
+            delete(loans_table)
+            .where(loans_table.c.id == loan_id)
+            .returning(loans_table.c.id)
+        )
         result = await self._session.execute(stmt)
-        if result.rowcount == 0:
+        if result.scalar_one_or_none() is None:
             raise LoanNotFound(f"Loan {loan_id} not found")
 
 

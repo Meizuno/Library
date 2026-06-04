@@ -53,6 +53,7 @@ class TestLoanRepository:
         valid_loan.mark_returned(valid_loan.due_at)
         await loan_repo_with_loan.update(valid_loan)
         saved_loan = await loan_repo_with_loan.find_by_id(valid_loan.id)
+        assert saved_loan is not None
         assert saved_loan.is_returned
 
     async def test_update_unsaved_loan_raises(
@@ -64,7 +65,7 @@ class TestLoanRepository:
     async def test_delete_saved_loan(
         self, loan_repo_with_loan: LoanRepository, valid_loan: Loan
     ):
-        assert await loan_repo_with_loan.delete(valid_loan.id) is None
+        await loan_repo_with_loan.delete(valid_loan.id)
         assert await loan_repo_with_loan.list_all() == []
 
     async def test_delete_unsaved_loan(self, empty_loan_repo: LoanRepository):

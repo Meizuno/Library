@@ -1,4 +1,5 @@
 import json
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
@@ -49,7 +50,7 @@ class SqlBookRepository:
     def __init__(self, session: AsyncSession):
         self._session = session
 
-    def _row_to_book(self, row) -> Book:
+    def _row_to_book(self, row: Any) -> Book:
         book = Book(
             title=row.title,
             author=row.author,
@@ -82,9 +83,10 @@ class SqlBookRepository:
                 isbn=book.isbn.value,
                 description=book.description,
             )
+            .returning(books_table.c.id)
         )
         result = await self._session.execute(stmt)
-        if result.rowcount == 0:
+        if result.scalar_one_or_none() is None:
             raise BookNotFound(f"Book {book.id} not found")
 
     async def find_by_id(self, book_id: UUID) -> Book | None:
@@ -130,9 +132,10 @@ class SqlBookRepository:
             )
             # pylint: disable-next=not-callable
             .values(deleted_at=func.now())
+            .returning(books_table.c.id)
         )
         result = await self._session.execute(stmt)
-        if result.rowcount == 0:
+        if result.scalar_one_or_none() is None:
             raise BookNotFound(f"Book {book_id} not found")
 
 

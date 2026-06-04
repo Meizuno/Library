@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import AsyncGenerator
+from typing import AsyncGenerator, cast
 
 from fastapi import Depends, Request
 from redis.asyncio import Redis
@@ -40,7 +40,9 @@ async def get_session(request: Request) -> AsyncGenerator[AsyncSession, None]:
 
 
 def get_redis_client(request: Request) -> Redis:
-    return request.app.state.redis
+    # `app.state` is dynamically populated in lifespan; mypy can't infer
+    # the attribute type, so we cast back to the real type.
+    return cast(Redis, request.app.state.redis)
 
 
 def get_cache(

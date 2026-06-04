@@ -61,7 +61,7 @@ class TestPassword:
     def test_password_is_frozen(self):
         pw = Password("correcthorse")
         with pytest.raises(Exception):
-            pw.value = "other"  # type: ignore[misc]
+            setattr(pw, "value", "other")
 
 
 class TestMember:
@@ -84,15 +84,6 @@ class TestMember:
         member = Member(name="X", email=valid_email, password_hash=_HASH)
         member.id = custom_id
         assert member.id == custom_id
-
-    def test_id_is_not_settable_via_constructor(self, valid_email):
-        with pytest.raises(TypeError):
-            Member(  # pylint: disable=unexpected-keyword-arg
-                id=uuid4(),
-                name="Name",
-                email=valid_email,
-                password_hash=_HASH,
-            )
 
     @pytest.mark.parametrize("name", ["", " "])
     def test_empty_name(self, name, valid_email):

@@ -13,7 +13,7 @@ async def _create_book(client: AsyncClient) -> str:
             "isbn": "978-3-16-148410-0",
         },
     )
-    return response.json()["id"]
+    return str(response.json()["id"])
 
 
 async def _create_member(client: AsyncClient) -> str:
@@ -25,7 +25,7 @@ async def _create_member(client: AsyncClient) -> str:
             "password": "password",
         },
     )
-    return response.json()["id"]
+    return str(response.json()["id"])
 
 
 class TestLoansAPI:

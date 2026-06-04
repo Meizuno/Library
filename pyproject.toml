@@ -25,6 +25,7 @@ dev = [
     "asyncpg>=0.31.0",
     "fakeredis>=2.35.1",
     "pylint>=3.3.0",
+    "mypy>=1.13.0",
     "bandit>=1.8.0",
     "codespell>=2.3.0",
     "pip-audit>=2.7.0",
@@ -47,3 +48,22 @@ disable = [
     "unused-argument",       # pytest side-effect fixtures (e.g. member_repo_with_member) look unused
     "duplicate-code",        # repeated test invocation patterns are intentional for clarity
 ]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# fakeredis ships type stubs marked partial; aiosqlite has none.
+module = ["fakeredis.*", "aiosqlite.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Tests are end-to-end-validated by pytest; static type-check focuses on
+# real correctness signals (union-attr, no-any-return, attr-defined) and
+# skips the "every function needs -> None" noise that strict mode forces.
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_decorators = false

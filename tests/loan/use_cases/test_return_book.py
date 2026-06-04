@@ -44,6 +44,7 @@ class TestReturnBookUseCase:
         assert returned.is_returned
         assert returned.returned_at == now
         saved = await loan_repo.find_by_id(loan.id)
+        assert saved is not None
         assert saved.returned_at == now
 
     async def test_return_book_marks_book_available_again(

@@ -17,7 +17,7 @@ Execute in this order, **stop on first failure**:
 pytest -W error
 ```
 
-Expected: **397 passed, 0 warnings**. If a deprecation warning appears, fix it — do NOT silence it with `-W ignore::DeprecationWarning`.
+Expected: **405 passed, 0 warnings**. If a deprecation warning appears, fix it — do NOT silence it with `-W ignore::DeprecationWarning`.
 
 ### 2. Linter — must score 10.00/10
 
@@ -27,7 +27,15 @@ pylint library tests
 
 Expected: `Your code has been rated at 10.00/10`. If lower, fix the underlying issue. Do **not** add `# pylint: disable=...` to silence. Acceptable global disables are already in [`pyproject.toml`](../../../pyproject.toml) under `[tool.pylint."messages control"]`.
 
-### 3. Spellcheck
+### 3. Type checker — must be clean
+
+```sh
+mypy library tests
+```
+
+Expected: `Success: no issues found in 150 source files`. mypy is configured `strict = true` in [`pyproject.toml`](../../../pyproject.toml) under `[tool.mypy]`, with a slightly loosened override for `tests.*` that skips the "missing return annotation on every test function" noise but keeps real correctness signals (union-attr, no-any-return, attr-defined, call-arg). Do **not** add `# type: ignore[...]` to silence — fix the underlying type. Acceptable per-line ignores already in the tree carry a comment explaining why (SQLAlchemy `result.rowcount` on `Result[Any]`, structlog's untyped `BoundLoggerLazyProxy`, deliberately-wrong test inputs around `pytest.raises`).
+
+### 4. Spellcheck
 
 ```sh
 codespell --skip="*.lock,.git,__pycache__,.venv,*.egg-info,.pytest_cache,.claude"
@@ -35,7 +43,7 @@ codespell --skip="*.lock,.git,__pycache__,.venv,*.egg-info,.pytest_cache,.claude
 
 Expected: zero hits. If there's a false positive (technical term), add it to a project codespell ignore list — do NOT comment it out per-line.
 
-### 4. Bandit — code-level security
+### 5. Bandit — code-level security
 
 ```sh
 bandit -r library
@@ -43,7 +51,7 @@ bandit -r library
 
 Expected: no Medium or High severity findings. Low-severity findings (like `B101: assert_used`) in tests are typically fine.
 
-### 5. pip-audit — dependency CVEs
+### 6. pip-audit — dependency CVEs
 
 ```sh
 pip-audit --skip-editable
@@ -51,7 +59,7 @@ pip-audit --skip-editable
 
 Expected: no known vulnerabilities in declared dependencies.
 
-### 6. License audit — no GPL-family
+### 7. License audit — no GPL-family
 
 ```sh
 pip-licenses --fail-on="GPL;LGPL;AGPL"
@@ -61,11 +69,12 @@ Expected: pass. The project intentionally uses only permissively-licensed depend
 
 ## Report format
 
-After running all six, report to the human:
+After running all seven, report to the human:
 
 ```
-✅ pytest:      397/397 passed, 0 warnings
+✅ pytest:      405/405 passed, 0 warnings
 ✅ pylint:      10.00/10
+✅ mypy:        no issues found
 ✅ codespell:   clean
 ✅ bandit:      no medium/high findings
 ✅ pip-audit:   no vulnerabilities
@@ -134,8 +143,8 @@ Convert to explicit `raise AssertionError(...)`. Bandit flags `assert` because P
 
 ## Do not
 
-- ❌ Skip any of the 6 checks
-- ❌ Add `# pylint: disable=...` to silence a warning rather than fixing it
+- ❌ Skip any of the 7 checks
+- ❌ Add `# pylint: disable=...` or `# type: ignore[...]` to silence a warning rather than fixing it
 - ❌ Add `-W ignore` to pytest to mask warnings
 - ❌ Declare a task done with any check failing
 - ❌ Run only the first check that passes and call it good — the suite is a chain

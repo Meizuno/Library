@@ -11,16 +11,16 @@ class RefreshToken:
     expires_at: datetime
     revoked_at: datetime | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.token_hash:
             raise ValueError("token_hash cannot be empty")
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, RefreshToken):
             return NotImplemented
         return self.id == other.id
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.id)
 
     @property

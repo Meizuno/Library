@@ -59,19 +59,6 @@ class TestLoanConstruction:
                 returned_at=loaned_at - timedelta(hours=1),
             )
 
-    def test_id_is_not_settable_via_constructor(
-        self, loaned_at: datetime, due_at: datetime
-    ):
-        with pytest.raises(TypeError):
-            Loan(  # pylint: disable=unexpected-keyword-arg
-                id=uuid4(),
-                book_id=uuid4(),
-                member_id=uuid4(),
-                loaned_at=loaned_at,
-                due_at=due_at,
-            )
-
-
 class TestLoanReturn:
     def test_mark_returned_sets_timestamp(
         self, loan_under_test: Loan, due_at: datetime

@@ -1,5 +1,6 @@
 import logging
 import sys
+from typing import Any
 
 import structlog
 
@@ -14,7 +15,7 @@ def configure_logging(
     json_format=True emits one JSON object per line (production).
     json_format=False emits human-readable colored output (development).
     """
-    shared_processors: list = [
+    shared_processors: list[Any] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,

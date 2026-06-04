@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from uuid import UUID
 
 import jwt
@@ -64,7 +65,7 @@ class SqlMemberRepository:
     def __init__(self, session: AsyncSession):
         self._session = session
 
-    def _row_to_member(self, row) -> Member:
+    def _row_to_member(self, row: Any) -> Member:
         member = Member(
             name=row.name,
             email=Email(row.email),
@@ -97,9 +98,10 @@ class SqlMemberRepository:
                 password_hash=member.password_hash,
                 is_verified=member.is_verified,
             )
+            .returning(members_table.c.id)
         )
         result = await self._session.execute(stmt)
-        if result.rowcount == 0:
+        if result.scalar_one_or_none() is None:
             raise MemberNotFound(f"Member {member.id} not found")
 
     async def find_by_id(self, member_id: UUID) -> Member | None:
@@ -137,9 +139,10 @@ class SqlMemberRepository:
             )
             # pylint: disable-next=not-callable
             .values(deleted_at=func.now())
+            .returning(members_table.c.id)
         )
         result = await self._session.execute(stmt)
-        if result.rowcount == 0:
+        if result.scalar_one_or_none() is None:
             raise MemberNotFound(f"Member {member_id} not found")
 
 

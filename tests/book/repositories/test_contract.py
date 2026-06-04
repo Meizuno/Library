@@ -72,6 +72,7 @@ class TestBookRepository:
         valid_book.title = "Updated title"
         await book_repo_with_book.update(valid_book)
         saved_book = await book_repo_with_book.find_by_id(valid_book.id)
+        assert saved_book is not None
         assert saved_book.title == "Updated title"
 
     async def test_update_unsaved_book_raises(
@@ -83,7 +84,7 @@ class TestBookRepository:
     async def test_delete_saved_book(
         self, book_repo_with_book: BookRepository, valid_book: Book
     ):
-        assert await book_repo_with_book.delete(valid_book.id) is None
+        await book_repo_with_book.delete(valid_book.id)
         assert await book_repo_with_book.list_all() == []
 
     async def test_delete_unsaved_book(self, empty_book_repo: BookRepository):

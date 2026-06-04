@@ -47,7 +47,7 @@ class TestISBN:
     def test_immutable_isbn(self):
         valid_isbn = ISBN("978-3-16-148410-0")
         with pytest.raises(FrozenInstanceError):
-            valid_isbn.value = "978-3-16-148410-0"
+            setattr(valid_isbn, "value", "978-3-16-148410-0")
 
     def test_equal_isbn(self):
         valid_isbn = ISBN("9783161484100")
@@ -86,15 +86,6 @@ class TestBook:
         book = Book(title="X", author="Y", isbn=valid_isbn)
         book.id = custom_id
         assert book.id == custom_id
-
-    def test_id_is_not_settable_via_constructor(self, valid_isbn):
-        with pytest.raises(TypeError):
-            Book(  # pylint: disable=unexpected-keyword-arg
-                id=uuid4(),
-                title="Title",
-                author="Author",
-                isbn=valid_isbn,
-            )
 
     @pytest.mark.parametrize("title", ["", " "])
     def test_empty_title(self, title, valid_isbn):

@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 class Email:
     value: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not re.fullmatch(r"[^@]+@[^@]+\.[^@]+", self.value):
             raise ValueError(f"invalid email: {self.value!r}")
 
@@ -28,7 +28,7 @@ class Password:
 
     value: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if len(self.value) < self.MIN_LENGTH:
             raise ValueError(
                 f"password must be at least {self.MIN_LENGTH} characters"
@@ -46,7 +46,7 @@ class Member:
     password_hash: str
     is_verified: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.name = self.name.strip()
 
         if not self.name:
@@ -54,12 +54,12 @@ class Member:
         if not self.password_hash:
             raise ValueError("password_hash cannot be empty")
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Member):
             return NotImplemented
         return self.id == other.id
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.id)
 
     def mark_verified(self) -> None:

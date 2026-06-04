@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -34,7 +35,7 @@ from library.shared.logging_config import configure_logging
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(
         json_format=settings.log_format == "json",
@@ -60,74 +61,94 @@ app.include_router(loan_router)
 
 
 @app.exception_handler(ValueError)
-async def value_error_handler(_: Request, exc: ValueError):
+async def value_error_handler(_: Request, exc: ValueError) -> JSONResponse:
     return JSONResponse(status_code=422, content={"message": str(exc)})
 
 
 @app.exception_handler(BookAlreadyExists)
-async def book_duplicate_exception_handler(_: Request, exc: BookAlreadyExists):
+async def book_duplicate_exception_handler(
+    _: Request, exc: BookAlreadyExists
+) -> JSONResponse:
     return JSONResponse(status_code=409, content={"message": str(exc)})
 
 
 @app.exception_handler(BookNotFound)
-async def book_not_found_handler(_: Request, exc: BookNotFound):
+async def book_not_found_handler(
+    _: Request, exc: BookNotFound
+) -> JSONResponse:
     return JSONResponse(status_code=404, content={"message": str(exc)})
 
 
 @app.exception_handler(MemberAlreadyExists)
 async def member_duplicate_exception_handler(
     _: Request, exc: MemberAlreadyExists
-):
+) -> JSONResponse:
     return JSONResponse(status_code=409, content={"message": str(exc)})
 
 
 @app.exception_handler(MemberNotFound)
-async def member_not_found_handler(_: Request, exc: MemberNotFound):
+async def member_not_found_handler(
+    _: Request, exc: MemberNotFound
+) -> JSONResponse:
     return JSONResponse(status_code=404, content={"message": str(exc)})
 
 
 @app.exception_handler(BookNotAvailable)
-async def book_not_available_handler(_: Request, exc: BookNotAvailable):
+async def book_not_available_handler(
+    _: Request, exc: BookNotAvailable
+) -> JSONResponse:
     return JSONResponse(status_code=409, content={"message": str(exc)})
 
 
 @app.exception_handler(LoanNotFound)
-async def loan_not_found_handler(_: Request, exc: LoanNotFound):
+async def loan_not_found_handler(
+    _: Request, exc: LoanNotFound
+) -> JSONResponse:
     return JSONResponse(status_code=404, content={"message": str(exc)})
 
 
 @app.exception_handler(InvalidCredentials)
-async def invalid_credentials_handler(_: Request, exc: InvalidCredentials):
+async def invalid_credentials_handler(
+    _: Request, exc: InvalidCredentials
+) -> JSONResponse:
     return JSONResponse(status_code=401, content={"message": str(exc)})
 
 
 @app.exception_handler(RefreshTokenInvalid)
-async def refresh_token_invalid_handler(_: Request, exc: RefreshTokenInvalid):
+async def refresh_token_invalid_handler(
+    _: Request, exc: RefreshTokenInvalid
+) -> JSONResponse:
     return JSONResponse(status_code=401, content={"message": str(exc)})
 
 
 @app.exception_handler(RefreshTokenExpired)
-async def refresh_token_expired_handler(_: Request, exc: RefreshTokenExpired):
+async def refresh_token_expired_handler(
+    _: Request, exc: RefreshTokenExpired
+) -> JSONResponse:
     return JSONResponse(status_code=401, content={"message": str(exc)})
 
 
 @app.exception_handler(RefreshTokenRevoked)
-async def refresh_token_revoked_handler(_: Request, exc: RefreshTokenRevoked):
+async def refresh_token_revoked_handler(
+    _: Request, exc: RefreshTokenRevoked
+) -> JSONResponse:
     return JSONResponse(status_code=401, content={"message": str(exc)})
 
 
 @app.exception_handler(InvalidVerificationToken)
 async def invalid_verification_token_handler(
     _: Request, exc: InvalidVerificationToken
-):
+) -> JSONResponse:
     return JSONResponse(status_code=401, content={"message": str(exc)})
 
 
 @app.exception_handler(MemberNotVerified)
-async def member_not_verified_handler(_: Request, exc: MemberNotVerified):
+async def member_not_verified_handler(
+    _: Request, exc: MemberNotVerified
+) -> JSONResponse:
     return JSONResponse(status_code=403, content={"message": str(exc)})
 
 
 @app.get("/health")
-def health_check():
+def health_check() -> str:
     return "OK"

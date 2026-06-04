@@ -1,15 +1,19 @@
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 
 import structlog
-from fastapi import Request
+from fastapi import Request, Response
 
 from library.shared.adapters import get_logger
 
 logger = get_logger(__name__)
 
 
-async def request_logging_middleware(request: Request, call_next):
+async def request_logging_middleware(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
     """Bind request_id + log request start/finish.
 
     Any log call within the request (including from RedisCache, repositories, etc.)

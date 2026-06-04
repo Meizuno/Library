@@ -23,7 +23,7 @@ class TestNotification:
     def test_is_frozen(self):
         n = Notification(subject="s", body="b")
         with pytest.raises(FrozenInstanceError):
-            n.body = "new"  # type: ignore[misc]
+            setattr(n, "body", "new")
 
     def test_equality_by_value(self):
         a = Notification(subject="s", body="b")
