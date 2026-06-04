@@ -1,4 +1,3 @@
-# pylint: disable=wrong-import-position
 # Env vars must be in place before any library import that may construct
 # `Settings()` (which validates required fields at instantiation time).
 import os
@@ -11,61 +10,60 @@ os.environ.setdefault(
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import AsyncGenerator
 from uuid import uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
-from library.auth.domain import (
+from library.auth.api.dependencies import (
+    get_refresh_token_repo,
+    get_token_issuer,
+)
+from library.auth.api.security import get_current_member, get_verified_member
+from library.auth.ports import (
     CredentialVerifier,
     RefreshTokenRepository,
     TokenIssuer,
 )
-from library.auth.infrastructure import (
+from library.auth.repositories import (
     PyJWTTokenIssuer,
     SqlRefreshTokenRepository,
 )
-from library.auth.presentation.api.dependencies import get_refresh_token_repo
-from library.auth.presentation.api.security import (
-    get_current_member,
-    get_verified_member,
+from library.book.api.dependencies import get_book_repo
+from library.book.models import ISBN, Book
+from library.book.ports import BookAvailability, BookRepository
+from library.book.repositories import SqlBookRepository
+from library.loan.api.dependencies import get_loan_repo
+from library.loan.models import Loan
+from library.loan.ports import LoanRepository
+from library.loan.repositories import LoanBookAvailability, SqlLoanRepository
+from library.member.api.dependencies import (
+    get_member_repo,
+    get_verification_token_issuer,
 )
-from library.book.domain import ISBN, Book, BookAvailability, BookRepository
-from library.book.infrastructure import SqlBookRepository
-from library.book.presentation.api.dependencies import get_book_repo
-from library.loan.domain import Loan, LoanRepository
-from library.loan.infrastructure import LoanBookAvailability, SqlLoanRepository
-from library.loan.presentation.api.dependencies import get_loan_repo
-from library.member.domain import (
-    Email,
-    Member,
-    MemberRepository,
-    VerificationTokenIssuer,
-)
-from library.member.infrastructure import (
+from library.member.models import Email, Member
+from library.member.ports import MemberRepository, VerificationTokenIssuer
+from library.member.repositories import (
     MemberCredentialVerifier,
     PyJWTVerificationTokenIssuer,
     SqlMemberRepository,
 )
-from library.notification.domain import Notification, Notifier
-from library.shared.application import Clock, PasswordHasher
-from library.shared.infrastructure import metadata
-from library.shared.presentation.api.dependencies import (
+from library.notification.models import Notification
+from library.notification.ports import Notifier
+from library.shared.adapters import metadata
+from library.shared.api.dependencies import (
     get_book_availability,
     get_clock,
     get_credential_verifier,
-    get_member_repo,
     get_notifier,
     get_password_hasher,
-    get_token_issuer,
-    get_verification_token_issuer,
 )
-from library.shared.presentation.api.main import app
-
+from library.shared.api.main import app
+from library.shared.ports import Clock, PasswordHasher
 
 _TEST_SECRET = "test-secret-key-must-be-at-least-32-bytes-long"
 

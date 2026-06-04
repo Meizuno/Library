@@ -58,7 +58,7 @@ fix/borrow-race-condition
 fix/refresh-token-rotation
 refactor/extract-pricing-service
 chore/bump-pydantic-2.13
-ci/add-bandit-medium-threshold
+ci/pin-ruff-version
 ```
 
 ### Bad
@@ -217,7 +217,8 @@ gh pr create --title "<type>(<scope>): <subject>" --body "$(cat <<'EOF'
 
 ## Test plan
 - [ ] `pytest -W error` passes
-- [ ] `pylint library tests` scores 10.00/10
+- [ ] `ruff check library tests` reports "All checks passed!"
+- [ ] `mypy library tests` reports no issues
 - [ ] Manual: <describe>
 
 Co-Authored-By: Claude <noreply@anthropic.com>

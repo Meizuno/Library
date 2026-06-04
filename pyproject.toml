@@ -24,8 +24,8 @@ dev = [
     "httpx>=0.28.1",
     "asyncpg>=0.31.0",
     "fakeredis>=2.35.1",
-    "pylint>=3.3.0",
-    "bandit>=1.8.0",
+    "ruff>=0.7.0",
+    "mypy>=1.13.0",
     "codespell>=2.3.0",
     "pip-audit>=2.7.0",
     "pip-licenses>=5.0.0",
@@ -35,15 +35,68 @@ dev = [
 testpaths = ["tests"]
 asyncio_mode = "auto"
 
-[tool.pylint."messages control"]
-disable = [
-    "missing-module-docstring",
-    "missing-class-docstring",
-    "missing-function-docstring",
-    "too-few-public-methods",
-    "too-many-arguments",
-    "too-many-positional-arguments",
-    "redefined-outer-name",  # pytest fixtures inherently look like shadowing
-    "unused-argument",       # pytest side-effect fixtures (e.g. member_repo_with_member) look unused
-    "duplicate-code",        # repeated test invocation patterns are intentional for clarity
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+# Rule families enabled. Replaces pylint + bandit:
+#   E/W   pycodestyle style + warnings
+#   F     Pyflakes (unused imports, undefined names, ...)
+#   I     isort (import sorting)
+#   B     flake8-bugbear (real-bug heuristics — except clauses, mutable defaults, ...)
+#   C4    flake8-comprehensions (idiomatic comprehensions)
+#   UP    pyupgrade (modern Python syntax)
+#   SIM   flake8-simplify (collapsible patterns)
+#   S     flake8-bandit (security rules — replaces standalone bandit)
+#   PT    flake8-pytest-style (consistent pytest idioms)
+#   RUF   ruff-specific rules
+select = ["E", "W", "F", "I", "B", "C4", "UP", "SIM", "S", "PT", "RUF"]
+
+# RUF001 / RUF002 / RUF003 (ambiguous unicode in string literals / docstrings
+# / comments) are enabled via RUF — they enforce AGENTS.md's "Code,
+# identifiers, comments, commit messages — always English" rule by catching
+# look-alike characters (Cyrillic 'а' that looks like Latin 'a', etc.).
+
+# Intentionally not enabled:
+#   PLR (Pylint refactor) — the "too-many-arguments" / "too-few-public-methods"
+#     family that we already silenced under the old pylint config. Skipping the
+#     family entirely is cleaner than enabling + ignoring each rule.
+#   D (pydocstyle) — module/class/function docstrings are deliberately optional
+#     in this codebase (well-named identifiers + targeted comments).
+#   ANN (flake8-annotations) — strict mypy already enforces annotations.
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency injection uses `param: T = Depends(get_x)` at function
+# signature level — that's a function call as a default argument (B008) but
+# it's the canonical FastAPI pattern and not a real "mutable default" hazard.
+extend-immutable-calls = ["fastapi.Depends"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",   # asserts are the entire point of tests
+    "S105",   # "hardcoded password" — false positives on test fixture secrets
+    "S106",   # same: pytest fixtures pass password kwargs to constructors
+    "S311",   # `random` in tests is fine; not cryptographic
+    "PT011",  # `pytest.raises(ValueError)` without match= — adding match
+              # everywhere is busywork; test names already document intent
 ]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# fakeredis ships type stubs marked partial; aiosqlite has none.
+module = ["fakeredis.*", "aiosqlite.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Tests are end-to-end-validated by pytest; static type-check focuses on
+# real correctness signals (union-attr, no-any-return, attr-defined) and
+# skips the "every function needs -> None" noise that strict mode forces.
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_decorators = false

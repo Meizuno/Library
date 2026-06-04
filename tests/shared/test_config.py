@@ -1,12 +1,13 @@
+from typing import Any
+
 import pytest
 from pydantic import ValidationError
 
 from library.shared.config import Settings
 
-
 _VALID_SECRET = "x" * 32  # exactly the HS256 minimum
 
-_VALID_KWARGS: dict = {
+_VALID_KWARGS: dict[str, Any] = {
     "database_url": "sqlite+aiosqlite:///:memory:",
     "redis_url": "redis://localhost:6379/0",
     "jwt_secret_key": _VALID_SECRET,

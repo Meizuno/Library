@@ -29,7 +29,7 @@ jobs:
   #  CODE QUALITY — static analysis & spelling
   # ─────────────────────────────────────────────────────────────
   lint:
-    name: Code quality (pylint + codespell)
+    name: Code quality (ruff + mypy + codespell)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,16 +40,18 @@ jobs:
           cache-dependency-path: pyproject.toml
       - name: Install
         run: pip install -e ".[dev]"
-      - name: Pylint
-        run: pylint library tests
+      - name: Ruff
+        run: ruff check library tests
+      - name: Mypy
+        run: mypy library tests
       - name: Codespell
         run: codespell --skip="*.lock,.git,__pycache__,.venv,*.egg-info"
 
   # ─────────────────────────────────────────────────────────────
-  #  SECURITY — code + dependencies + licenses
+  #  SECURITY — dependencies + licenses (code-level security is in ruff's S rules)
   # ─────────────────────────────────────────────────────────────
   security:
-    name: Security (bandit + pip-audit + license audit)
+    name: Security (pip-audit + license audit)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,8 +62,6 @@ jobs:
           cache-dependency-path: pyproject.toml
       - name: Install
         run: pip install -e ".[dev]"
-      - name: Bandit (code-level vulnerabilities)
-        run: bandit -r library
       - name: pip-audit (CVE in dependencies)
         run: pip-audit --skip-editable
       - name: License audit (no GPL family)

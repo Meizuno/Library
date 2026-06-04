@@ -3,7 +3,6 @@ from typing import Literal
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 # Allow-lists for prefix validation. Used by `database_url` and `redis_url`.
 # SQLAlchemy + asyncpg/aiosqlite for the DB; redis-py for the cache.
 _ALLOWED_DB_PREFIXES = (

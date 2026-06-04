@@ -1,20 +1,20 @@
 ---
 name: add-use-case
-description: Generate a new use case inside an existing bounded-context slice, following the project's DDD layered conventions.
+description: Generate a new use case inside an existing module, following the project's flat per-module conventions.
 ---
 
 # Add Use Case
 
-When the human says "add use case X to slice Y" (or "add ability to do X for entity Y"), follow this skill **before writing any code**.
+When the human says "add use case X to module Y" (or "add ability to do X for entity Y"), follow this skill **before writing any code**.
 
 ## Pre-flight
 
-1. Read [AGENTS.md](../../../AGENTS.md) — confirm the Dependency Rule and exception taxonomy.
-2. Identify the **slice** (`book/`, `member/`, `loan/`, `auth/`, `notification/`). If the use case naturally spans multiple slices, it lives in the **consumer** slice and pulls ports from the others.
+1. Read [AGENTS.md](../../../AGENTS.md) — confirm the Dependency Rule (file-level) and exception taxonomy.
+2. Identify the **module** (`book/`, `member/`, `loan/`, `auth/`, `notification/`). If the use case naturally spans multiple modules, it lives in the **consumer** module and pulls ports from the others.
 3. Pick a **reference** existing use case to mirror — they all follow the same shape:
-   - Read-side reference: [`read_book.py`](../../../library/book/application/use_cases/read_book.py)
-   - Write-side reference: [`add_book.py`](../../../library/book/application/use_cases/add_book.py)
-   - Multi-aggregate reference: [`borrow_book.py`](../../../library/loan/application/use_cases/borrow_book.py)
+   - Read-side reference: [`read_book.py`](../../../library/book/use_cases/read_book.py)
+   - Write-side reference: [`add_book.py`](../../../library/book/use_cases/add_book.py)
+   - Multi-aggregate reference: [`borrow_book.py`](../../../library/loan/use_cases/borrow_book.py)
 
 ## Workflow
 
@@ -22,49 +22,40 @@ When the human says "add use case X to slice Y" (or "add ability to do X for ent
 
 Before writing code, surface these decisions in **one short message**:
 
-- Which slice owns this use case?
-- Does it mutate state (writes/raises domain exceptions) or read-only?
-- Does it cross slices? Which ports does it need?
-- Authentication required (Bearer + verified)? `/auth` and `/loans` endpoints already use `get_verified_member`.
+- Which module owns this use case?
+- Does it mutate state (writes / raises domain exceptions) or read-only?
+- Does it cross modules? Which ports does it need?
+- Authentication required (Bearer + verified)? `/auth` routes are public; `/loans` is auth-gated via `get_verified_member` on the aggregator router.
 
 Wait for confirmation. **Do not assume.**
 
-### Step 2 — Create the Command DTO
+### Step 2 — Create the use case file
 
-Add to `library/<slice>/application/commands.py`:
+File path: `library/<module>/use_cases/<verb>_<noun>.py`
+
+**Both the Command DTO and the UseCase class live in the same file.** Skeleton (mirror style precisely):
 
 ```python
 from dataclasses import dataclass
+
+from library.<module>.exceptions import <ApplicationException>, <DomainException>
+from library.<module>.models import <Entity>
+from library.<module>.ports import <EntityRepository>
+from library.shared.ports import Clock, Logger  # only if needed
+
 
 @dataclass(frozen=True)
 class <Verb><Noun>Command:
     # only fields the use case needs; not the HTTP shape
     ...
-```
-
-Commands are **frozen dataclasses**, contain only fields the use case consumes. Do **not** put `request: Request` or HTTP-shaped types here.
-
-### Step 3 — Create the use case class
-
-File path: `library/<slice>/application/use_cases/<verb>_<noun>.py`
-
-Skeleton (mirror style precisely):
-
-```python
-from library.<slice>.domain import <Entity>, <Repository>
-from library.<slice>.application.commands import <Verb><Noun>Command
-from library.<slice>.application.exceptions import <ApplicationException>
-from library.<slice>.domain.exceptions import <DomainException>
-from library.shared.application.clock import Clock        # if time is needed
-from library.shared.application.logger import Logger      # if logging is needed
 
 
 class <Verb><Noun>UseCase:
     def __init__(
         self,
-        <entity>_repo: <Repository>,
-        clock: Clock,         # only if needed
-        logger: Logger,       # only if needed
+        <entity>_repo: <EntityRepository>,
+        clock: Clock,           # only if needed
+        logger: Logger,         # only if needed
     ):
         self._<entity>_repo = <entity>_repo
         self._clock = clock
@@ -81,89 +72,111 @@ class <Verb><Noun>UseCase:
 ```
 
 **Rules:**
-- All dependencies via constructor — no `Depends()` inside the class
-- `async` body (everything is async in this codebase)
-- **Never call `datetime.now()`** — use `self._clock.now()`
-- **Never `import structlog`** — use `self._logger.info(...)`
-- **Never catch exceptions to convert them** — raise domain/application exceptions, let HTTP layer map
-- **`create` vs `update` on repositories** — no upserts
+- Command DTO is a **frozen dataclass**; fields only — no HTTP types, no `Depends()`.
+- All dependencies injected via constructor — no `Depends()` inside the class.
+- `async` body (everything is async in this codebase).
+- **Never call `datetime.now()`** — use `self._clock.now()`.
+- **Never `import structlog`** — use `self._logger.info(...)`.
+- **Never catch exceptions to convert them** — raise domain/application exceptions, let the HTTP layer map.
+- **`create` vs `update` on repositories** — no upserts.
+- **Never `from library.<module>.repositories import ...`** — use cases consume Ports, not impls.
 
-### Step 4 — Export from `__init__.py`
+### Step 3 — Wire feature-local DI provider
 
-Add to `library/<slice>/application/use_cases/__init__.py`:
-
-```python
-from .<verb>_<noun> import <Verb><Noun>UseCase
-
-__all__ = [..., "<Verb><Noun>UseCase"]
-```
-
-### Step 5 — Wire in composition root
-
-Edit [`library/shared/presentation/api/dependencies.py`](../../../library/shared/presentation/api/dependencies.py):
+Edit `library/<module>/api/dependencies.py` (NOT shared):
 
 ```python
 def get_<verb>_<noun>_use_case(
-    <entity>_repo: <Repository> = Depends(get_<entity>_repository),
+    <entity>_repo: <EntityRepository> = Depends(get_<entity>_repo),
     clock: Clock = Depends(get_clock),
 ) -> <Verb><Noun>UseCase:
-    return <Verb><Noun>UseCase(<entity>_repo=<entity>_repo, clock=clock)
+    return <Verb><Noun>UseCase(<entity>_repo, clock)
 ```
 
-### Step 6 — Add HTTP endpoint (if exposed via API)
+`get_clock` / `get_password_hasher` / `get_session` / `get_cache` come from `library.shared.api.dependencies`. Cross-module ports (e.g., `Notifier`, `VerificationTokenIssuer`) come from their owner module's `api/dependencies.py`. The shared composition root is only for cross-module port BRIDGES (`get_credential_verifier`, `get_book_availability`).
 
-Edit `library/<slice>/presentation/api/router.py`:
+### Step 4 — Add HTTP route (if exposed via API)
+
+Create `library/<module>/api/routes/<verb>_<entity>.py`:
 
 ```python
-@router.post("/<resource>", status_code=201)
-async def <verb>_<resource>(
-    payload: <Verb><Resource>Schema,
-    use_case: <Verb><Resource>UseCase = Depends(get_<verb>_<resource>_use_case),
-) -> <Resource>Response:
-    result = await use_case.execute(payload.to_command())
-    return <Resource>Response.from_entity(result)
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+
+from library.<module>.api.dependencies import get_<verb>_<noun>_use_case
+from library.<module>.api.schemas import <Entity>Response
+from library.<module>.use_cases.<verb>_<noun> import (
+    <Verb><Noun>Command,
+    <Verb><Noun>UseCase,
+)
+
+
+class <Verb><Entity>Request(BaseModel):
+    # HTTP request shape; lives with the route
+    ...
+
+
+router = APIRouter(prefix="/<entities>", tags=["<entity>"])
+
+
+@router.post("", status_code=201)
+async def <verb>_<entity>(
+    payload: <Verb><Entity>Request,
+    use_case: <Verb><Noun>UseCase = Depends(get_<verb>_<noun>_use_case),
+) -> <Entity>Response:
+    result = await use_case.execute(<Verb><Noun>Command(...))
+    return <Entity>Response.from_domain(result)
 ```
 
-**Routers:**
-- Never `try/except` — let exceptions bubble
-- Convert request DTO → command via `.to_command()` method on schema
-- Convert entity → response DTO via `.from_entity()` classmethod
+Then register it in `library/<module>/api/__init__.py`:
 
-### Step 7 — Write tests at the application layer
+```python
+router.include_router(<verb>_<entity>.router)
+```
 
-File path: `tests/<slice>/application/test_<verb>_<noun>.py`
+**Routes:**
+- Never `try/except` — let exceptions bubble.
+- Convert HTTP request → command via plain dataclass construction.
+- Convert domain entity → response via `<Entity>Response.from_domain(...)`.
+
+### Step 5 — Write tests
+
+File path: `tests/<module>/use_cases/test_<verb>_<noun>.py`
 
 ```python
 import pytest
-from library.<slice>.application.use_cases.<verb>_<noun> import <Verb><Noun>UseCase
-from library.<slice>.application.commands import <Verb><Noun>Command
-from library.<slice>.application.exceptions import <ApplicationException>
+
+from library.<module>.exceptions import <DomainException>
+from library.<module>.ports import <EntityRepository>
+from library.<module>.use_cases.<verb>_<noun> import (
+    <Verb><Noun>Command,
+    <Verb><Noun>UseCase,
+)
 
 
-@pytest.fixture
-def use_case(<entity>_repo, clock, logger):
-    return <Verb><Noun>UseCase(<entity>_repo=<entity>_repo, clock=clock, logger=logger)
+class Test<Verb><Noun>UseCase:
+    async def test_<verb>_succeeds(
+        self, <entity>_repo: <EntityRepository>, ...
+    ):
+        use_case = <Verb><Noun>UseCase(<entity>_repo, ...)
+        result = await use_case.execute(<Verb><Noun>Command(...))
+        assert ...
 
-
-async def test_<verb>_<noun>_succeeds(use_case, <fixtures>):
-    result = await use_case.execute(<Verb><Noun>Command(...))
-    assert ...
-
-
-async def test_<verb>_<noun>_raises_on_missing(use_case):
-    with pytest.raises(<DomainException>):
-        await use_case.execute(<Verb><Noun>Command(...))
+    async def test_<verb>_raises_on_missing(self, <entity>_repo):
+        use_case = <Verb><Noun>UseCase(<entity>_repo, ...)
+        with pytest.raises(<DomainException>):
+            await use_case.execute(<Verb><Noun>Command(...))
 ```
 
 **Test rules:**
-- Use the **conftest-provided repo fixtures** (`book_repo`, `member_repo`, `loan_repo`, `refresh_token_repo`) — they are `Sql*Repository` instances backed by a fresh `:memory:` SQLite engine per test, set up by `db_engine` + `db_session` fixtures in [`tests/conftest.py`](../../../tests/conftest.py)
-- Use **FakeClock** (fixed timestamp) for time-dependent behaviour
-- Test happy path + at least one error path per branch
-- Test names: `test_<verb>_<noun>_<expectation>` (one assertion per test where possible)
+- Use the **conftest-provided repo fixtures** (`book_repo`, `member_repo`, `loan_repo`, `refresh_token_repo`) from [`tests/conftest.py`](../../../tests/conftest.py) — they're `Sql*Repository` instances backed by a fresh `:memory:` SQLite engine per test, sharing one `db_session`.
+- Use **`FakeClock`** (fixed timestamp) for time-dependent behavior.
+- Test happy path + at least one error path per branch.
+- Test names: `test_<verb>_<noun>_<expectation>` (one assertion per test where possible).
 
-### Step 8 — Add an HTTP test (only if endpoint was added)
+### Step 6 — Add an HTTP test (only if a route was added)
 
-File path: `tests/<slice>/presentation/api/test_<verb>_<noun>_endpoint.py`
+File path: `tests/<module>/api/test_api.py` (extend the existing file; don't create a new one per route).
 
 ```python
 async def test_<verb>_endpoint_returns_201(client, valid_<thing>):
@@ -179,18 +192,13 @@ async def test_<verb>_endpoint_returns_404_when_missing(client):
 
 Use the `client` fixture from [`tests/conftest.py`](../../../tests/conftest.py) — it's an `httpx.AsyncClient` over `ASGITransport` (no real network).
 
-### Step 9 — Run verify
+### Step 7 — Run verify
 
-```sh
-pytest -W error
-pylint library tests
-```
-
-Both must pass clean. Pylint must score **10.00/10**. See `/verify` skill for full pre-commit checklist.
+Run [`/verify`](../verify/SKILL.md). All six steps (pytest, ruff, mypy, codespell, pip-audit, pip-licenses) must pass clean.
 
 ## Reference: shape of a complete use case
 
-`AddMemberUseCase` ([library/member/application/use_cases/add_member.py](../../../library/member/application/use_cases/add_member.py)) is the canonical example — it touches multiple ports (`MemberRepository`, `PasswordHasher`, `VerificationTokenIssuer`, `Notifier`, `Clock`), validates duplicates, persists, sends welcome email. Read it and mirror.
+[`AddMemberUseCase`](../../../library/member/use_cases/add_member.py) is the canonical example — it touches multiple ports (`MemberRepository`, `PasswordHasher`, `VerificationTokenIssuer`, `Notifier`, plus the app's base URL), validates duplicates, persists, sends welcome email. Read it and mirror.
 
 ## Do not
 
@@ -199,4 +207,5 @@ Both must pass clean. Pylint must score **10.00/10**. See `/verify` skill for fu
 - ❌ Call `datetime.now()` / `random.random()` / `logger.info()` directly
 - ❌ `try/except` to convert exceptions — raise domain/application, let HTTP layer map
 - ❌ Skip writing the test — every use case has at least 2 tests
-- ❌ Add Use Cases in `library/application/use_cases/` (legacy root path) — they go in slice-local `<slice>/application/use_cases/`
+- ❌ Put the Command DTO in a separate file (it lives with the UseCase in the same module file)
+- ❌ Import from `<module>.repositories` in the use case — use cases consume Ports, not impls

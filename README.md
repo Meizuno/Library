@@ -7,7 +7,7 @@ members, loans, plus authentication, email verification, and outbound notificati
 is a vehicle — the real subject is how to organize async Python code so that
 business logic, persistence, transport, and infrastructure can evolve independently.
 
-> 396 tests. Every architectural claim below is enforced by a test.
+> 402 tests. Every architectural claim below is enforced by a test.
 
 ---
 
@@ -48,11 +48,14 @@ The codebase is **sliced by bounded context** at the top level (`book/`, `member
                 applied inside book/, member/, loan/, auth/, notification/
 ```
 
-**Source-code dependencies always point inward.** Within any slice,
-[`<feature>/domain/`](library/book/domain/) imports nothing from `application/`,
-`infrastructure/`, or `presentation/`. `application/` imports only from `domain/`.
-`infrastructure/` implements `domain/` protocols. `presentation/` orchestrates
-everything from the outside.
+**Source-code dependencies always point inward.** Within any module, the
+dependency rule is encoded by **file**, not by directory: [`models.py`](library/book/models.py)
+imports nothing else from the module (only stdlib/typing); [`ports.py`](library/book/ports.py)
+imports only models; [`exceptions.py`](library/book/exceptions.py) imports
+only the `DomainError` / `ApplicationError` bases; [`repositories.py`](library/book/repositories.py)
+implements the Protocols defined in `ports.py`; `use_cases/` consumes ports
+and never reaches into `repositories.py` or `api/`; `api/` is the only
+place that knows about HTTP.
 
 **Cross-slice imports are allowed where they are natural and one-way.**
 
@@ -63,7 +66,7 @@ everything from the outside.
   object from [`notification/`](library/notification/) to send the welcome email
   on registration.
 - [`auth/`](library/auth/) defines a `CredentialVerifier` port; the implementation
-  ([`MemberCredentialVerifier`](library/member/infrastructure/credential_verifier.py))
+  ([`MemberCredentialVerifier`](library/member/repositories.py))
   lives in `member/infrastructure/`. Only the impl direction crosses the slice
   boundary — `auth.application` no longer imports from `member.domain` at all.
 - [`member/`](library/member/) defines its own `VerificationTokenIssuer` port and
@@ -83,116 +86,86 @@ contract tests start failing in unintuitive ways.
 
 ```
 library/
-├── book/                          # Bounded context: books
-│   ├── domain/
-│   │   ├── model.py               # Book (entity, with description)
-│   │   ├── value_objects.py       # ISBN (immutable, validated)
-│   │   ├── repository.py          # BookRepository  ← Protocol (port)
-│   │   └── exceptions.py          # BookNotFound, BookNotAvailable
-│   ├── application/
-│   │   ├── commands.py            # AddBookCommand, UpdateBookCommand
-│   │   ├── exceptions.py          # BookAlreadyExists
-│   │   └── use_cases/             # One file per use case (SRP)
-│   │       ├── add_book.py
-│   │       ├── update_book.py
-│   │       ├── read_book.py
-│   │       ├── list_books.py
-│   │       └── delete_book.py
-│   ├── infrastructure/
-│   │   ├── in_memory_repository.py
-│   │   ├── sql_table.py           # books_table (uses shared MetaData)
-│   │   ├── sql_repository.py
-│   │   └── cached_repository.py   # CachedBookRepository (Decorator)
-│   └── presentation/api/          # schemas, dependencies, router
+├── book/                          # Module: books
+│   ├── models.py                  # Book entity + ISBN value object
+│   ├── ports.py                   # BookRepository + BookAvailability (Protocols)
+│   ├── exceptions.py              # BookNotFound, BookNotAvailable, BookAlreadyExists
+│   ├── repositories.py            # books_table + SqlBookRepository + CachedBookRepository
+│   ├── use_cases/                 # one file per use case; Command + UseCase together
+│   │   ├── add_book.py
+│   │   ├── update_book.py
+│   │   ├── read_book.py
+│   │   ├── list_books.py
+│   │   └── delete_book.py
+│   └── api/
+│       ├── dependencies.py        # feature-local DI providers (get_book_repo, etc.)
+│       ├── schemas.py             # BookResponse (shared output)
+│       └── routes/                # one file per route; request schema lives with it
+│           ├── add_book.py
+│           ├── update_book.py
+│           ├── read_book.py
+│           ├── list_books.py
+│           └── delete_book.py
 │
-├── member/                        # Bounded context: members (identity)
-│   ├── domain/
-│   │   ├── model.py               # Member (with is_verified + mark_verified)
-│   │   ├── value_objects.py       # Email, Password
-│   │   ├── repository.py
-│   │   ├── services.py            # VerificationTokenIssuer (port)
-│   │   └── exceptions.py          # MemberNotFound, InvalidVerificationToken
-│   ├── application/
-│   │   ├── exceptions.py          # MemberAlreadyExists, MemberNotVerified
-│   │   └── use_cases/
-│   │       ├── add_member.py      # registration: hash, persist, email link
-│   │       ├── verify_member.py   # confirm email (idempotent)
-│   │       ├── read_member.py
-│   │       ├── list_members.py
-│   │       └── delete_member.py
-│   ├── infrastructure/
-│   │   ├── in_memory_repository.py
-│   │   ├── sql_table.py
-│   │   ├── sql_repository.py
-│   │   ├── cached_repository.py
-│   │   ├── credential_verifier.py             # implements auth.CredentialVerifier
-│   │   └── pyjwt_verification_token_issuer.py # implements VerificationTokenIssuer
-│   └── presentation/api/
+├── member/                        # Module: members (identity)
+│   ├── models.py                  # Member + Email + Password
+│   ├── ports.py                   # MemberRepository + VerificationTokenIssuer
+│   ├── exceptions.py              # MemberNotFound + MemberAlreadyExists + MemberNotVerified
+│   │                              #   + InvalidVerificationToken
+│   ├── repositories.py            # members_table + Sql + Cached repos,
+│   │                              #   plus MemberCredentialVerifier (auth port impl)
+│   │                              #   and PyJWTVerificationTokenIssuer
+│   ├── use_cases/                 # add_member, verify_member, read, list, delete
+│   └── api/                       # dependencies + schemas + routes/
 │
-├── loan/                          # Bounded context: loans (multi-aggregate)
-│   ├── domain/                    # Loan, LoanRepository, LoanNotFound
-│   ├── application/               # BorrowBookUseCase, ReturnBookUseCase
-│   ├── infrastructure/            # in-memory + SQL (no cache, no value objects)
-│   └── presentation/api/          # router is gated by get_verified_member
+├── loan/                          # Module: loans (multi-aggregate)
+│   ├── models.py                  # Loan
+│   ├── ports.py                   # LoanRepository
+│   ├── exceptions.py              # LoanNotFound
+│   ├── repositories.py            # loans_table + SqlLoanRepository + LoanBookAvailability
+│   ├── use_cases/                 # borrow_book + return_book
+│   └── api/                       # router gated by get_verified_member at aggregator
 │
-├── auth/                          # Bounded context: authentication sessions
-│   ├── domain/
-│   │   ├── model.py               # RefreshToken
-│   │   ├── repository.py          # RefreshTokenRepository
-│   │   ├── services.py            # TokenIssuer, CredentialVerifier (ports)
-│   │   └── exceptions.py          # InvalidAccessToken, RefreshToken{Invalid,
-│   │                              #   Expired,Revoked,NotFound}
-│   ├── application/
-│   │   ├── token_pair.py          # TokenPair value object
-│   │   ├── exceptions.py          # InvalidCredentials
-│   │   └── use_cases/             # login, refresh, logout
-│   ├── infrastructure/
-│   │   ├── pyjwt_issuer.py        # PyJWTTokenIssuer (access + refresh only)
-│   │   ├── in_memory_repository.py
-│   │   ├── sql_table.py
-│   │   └── sql_repository.py      # refresh tokens persisted hashed
-│   └── presentation/api/
-│       ├── router.py              # /auth/{login,refresh,logout}
+├── auth/                          # Module: authentication sessions
+│   ├── models.py                  # RefreshToken + TokenPair (transient VO)
+│   ├── ports.py                   # RefreshTokenRepository + TokenIssuer + CredentialVerifier
+│   ├── exceptions.py              # InvalidAccessToken, RefreshToken{Invalid,Expired,
+│   │                              #   Revoked,NotFound}, InvalidCredentials
+│   ├── repositories.py            # refresh_tokens_table + Sql repo + PyJWTTokenIssuer
+│   ├── use_cases/                 # login, refresh_tokens, logout
+│   └── api/
+│       ├── dependencies.py        # get_refresh_token_repo + get_token_issuer + use case providers
 │       ├── security.py            # get_current_member, get_verified_member
-│       └── dependencies.py
+│       ├── schemas.py             # TokenResponse
+│       └── routes/                # login + refresh + logout
 │
-├── notification/                  # Bounded context: outbound notifications
-│   ├── domain/
-│   │   ├── model.py               # Notification (subject + body + recipient)
-│   │   └── services.py            # Notifier  ← Protocol (port)
-│   └── infrastructure/
-│       └── email_notifier.py      # EmailNotifier (aiosmtplib; log-only in dev)
+├── notification/                  # Module: outbound notifications (minimal — no use cases)
+│   ├── models.py                  # Notification (subject + body)
+│   ├── ports.py                   # Notifier (Protocol)
+│   └── email_notifier.py          # EmailNotifier (aiosmtplib; log-only in dev)
 │
 └── shared/                        # Cross-cutting code
     ├── config.py                  # Pydantic Settings (fail-fast on missing env)
     ├── logging_config.py          # structlog + stdlib bridge
-    ├── domain/exceptions.py       # DomainError (base)
-    ├── application/
-    │   ├── clock.py               # Clock (port)
-    │   ├── password_hasher.py     # PasswordHasher (port)
-    │   ├── logger.py              # Logger (port)
-    │   └── exceptions.py          # ApplicationError (base)
-    ├── infrastructure/
-    │   ├── clock.py               # SystemClock
-    │   ├── argon2_password_hasher.py  # Argon2PasswordHasher
-    │   ├── structlog_logger.py    # get_logger (structlog bridge)
-    │   ├── sql_metadata.py        # shared MetaData()
-    │   └── cache/                 # Cache port + Redis / in-memory impls
-    └── presentation/api/
+    ├── ports.py                   # Clock + PasswordHasher + Logger + Cache (all Protocols)
+    ├── exceptions.py              # DomainError + ApplicationError (base classes)
+    ├── adapters.py                # SystemClock + Argon2PasswordHasher + get_logger
+    │                              #   + metadata (shared MetaData) + RedisCache + InMemoryCache
+    └── api/
         ├── main.py                # FastAPI app, lifespan, exception handlers
-        ├── dependencies.py        # composition root for cross-slice DI
+        ├── dependencies.py        # composition root for cross-module port wiring
         └── middleware.py          # request_logging_middleware (structlog)
 
-tests/                             # Mirrors the source tree 1:1
-├── conftest.py                    # Cross-feature fixtures (valid_*, clock,
+tests/                             # Mirrors the source structure
+├── conftest.py                    # cross-feature fixtures (valid_*, clock,
 │                                  #   token_issuer, credential_verifier,
 │                                  #   verification_token_issuer, client)
-├── book/{domain, application, infrastructure, presentation/api/}
+├── book/{test_models.py, repositories/, use_cases/, api/}
 ├── member/{…}
 ├── loan/{…}
 ├── auth/{…}
-├── notification/{…}
-└── shared/{infrastructure, test_config.py}
+├── notification/{test_models.py, test_email_notifier.py}
+└── shared/{test_*.py — config, clock, argon2_hasher, structlog_logger, in_memory_cache}
 ```
 
 Browse the source: [`library/`](library/) · [`tests/`](tests/).
@@ -203,10 +176,10 @@ Browse the source: [`library/`](library/) · [`tests/`](tests/).
 
 ### Repository Pattern (Ports & Adapters)
 
-[`BookRepository`](library/book/domain/repository.py),
-[`MemberRepository`](library/member/domain/repository.py),
-[`LoanRepository`](library/loan/domain/repository.py), and
-[`RefreshTokenRepository`](library/auth/domain/repository.py) are
+[`BookRepository`](library/book/ports.py),
+[`MemberRepository`](library/member/ports.py),
+[`LoanRepository`](library/loan/ports.py), and
+[`RefreshTokenRepository`](library/auth/ports.py) are
 `typing.Protocol` classes living in each feature's `domain/`. Three or four
 concrete implementations live in the feature's `infrastructure/`:
 `InMemory*`, `Sql*`, plus a `Cached*` decorator (books and members only).
@@ -235,24 +208,24 @@ JWTs are used for two unrelated jobs in this codebase: short-lived **access
 tokens** for authentication, and single-use **verification tokens** for email
 confirmation. Two ports, two impls:
 
-- [`auth.domain.TokenIssuer`](library/auth/domain/services.py): access tokens
+- [`auth.domain.TokenIssuer`](library/auth/ports.py): access tokens
   (issue + verify) and refresh tokens (generate + hash) — strictly authentication
   session concerns.
-- [`member.domain.VerificationTokenIssuer`](library/member/domain/services.py):
+- [`member.domain.VerificationTokenIssuer`](library/member/ports.py):
   email verification tokens (issue + verify) — strictly an email-verification
   concern.
 
-Each impl ([`PyJWTTokenIssuer`](library/auth/infrastructure/pyjwt_issuer.py),
-[`PyJWTVerificationTokenIssuer`](library/member/infrastructure/pyjwt_verification_token_issuer.py))
+Each impl ([`PyJWTTokenIssuer`](library/auth/repositories.py),
+[`PyJWTVerificationTokenIssuer`](library/member/repositories.py))
 uses the same `JWT_SECRET_KEY` but stamps a distinct `purpose` claim
 (`access` vs `verify_email`) on its payload, so a token minted for one purpose
 cannot be replayed against the other endpoint.
 
 ### Cross-slice port with member-side impl (`CredentialVerifier`)
 
-[`auth.domain.CredentialVerifier`](library/auth/domain/services.py) is a port
+[`auth.domain.CredentialVerifier`](library/auth/ports.py) is a port
 that `LoginUseCase` consumes (`async verify(email, password) -> UUID`). Its
-implementation, [`MemberCredentialVerifier`](library/member/infrastructure/credential_verifier.py),
+implementation, [`MemberCredentialVerifier`](library/member/repositories.py),
 lives in `member/infrastructure/` and internally uses `MemberRepository` +
 `PasswordHasher` to do the actual lookup and verification.
 
@@ -264,48 +237,48 @@ real member store.
 
 ### Notifier as a business port, not infrastructure
 
-[`Notifier`](library/notification/domain/services.py) is a domain port that
-sends a [`Notification`](library/notification/domain/model.py) value object —
+[`Notifier`](library/notification/ports.py) is a domain port that
+sends a [`Notification`](library/notification/models.py) value object —
 **not** an "email service". The value object carries `recipient`, `subject`,
 `body`; the channel is the impl's concern. Today the only impl is
-[`EmailNotifier`](library/notification/infrastructure/email_notifier.py) via
+[`EmailNotifier`](library/notification/email_notifier.py) via
 `aiosmtplib`, but the use case
-([`AddMemberUseCase`](library/member/application/use_cases/add_member.py))
+([`AddMemberUseCase`](library/member/use_cases/add_member.py))
 doesn't know that — adding SMS or push later doesn't touch member code.
 
 ### Argon2 password hashing behind a port
 
-[`PasswordHasher`](library/shared/application/password_hasher.py) is a port
+[`PasswordHasher`](library/shared/ports.py) is a port
 in `shared.application`. Production uses
-[`Argon2PasswordHasher`](library/shared/infrastructure/argon2_password_hasher.py)
+[`Argon2PasswordHasher`](library/shared/adapters.py)
 (argon2-cffi, OWASP-recommended parameters); tests use a `FakePasswordHasher`
 that produces deterministic, fast hashes (`"hashed:password"`). Switching cost
 factors or algorithms is one constructor argument away — use cases never see it.
 
 ### Decorator Pattern (CachedBookRepository, CachedMemberRepository)
 
-[`CachedBookRepository`](library/book/infrastructure/cached_repository.py) wraps
+[`CachedBookRepository`](library/book/repositories.py) wraps
 any `BookRepository` and adds Redis caching to `find_by_id`. The cache layer
 itself is abstracted behind a `Cache` protocol
-([`shared/infrastructure/cache/protocol.py`](library/shared/infrastructure/cache/protocol.py))
+([`shared/infrastructure/cache/protocol.py`](library/shared/ports.py))
 with two implementations:
-[`RedisCache`](library/shared/infrastructure/cache/redis.py) (network) and
-[`InMemoryCache`](library/shared/infrastructure/cache/in_memory.py) (LRU).
+[`RedisCache`](library/shared/adapters.py) (network) and
+[`InMemoryCache`](library/shared/adapters.py) (LRU).
 The decorator works against any cache, the cache works against any backend.
 DIP applied recursively.
 
 ### Clock Pattern (testable time)
 
 Use cases never call `datetime.now()` directly. They depend on a `Clock`
-protocol ([`shared/application/clock.py`](library/shared/application/clock.py))
+protocol ([`shared/application/clock.py`](library/shared/ports.py))
 injected through the constructor. Production uses
-[`SystemClock`](library/shared/infrastructure/clock.py); tests use a `FakeClock`
+[`SystemClock`](library/shared/adapters.py); tests use a `FakeClock`
 returning a fixed time. Tests can assert exact timestamps, not "within a few
 seconds of now".
 
 ### Repository per Aggregate, ID references between aggregates
 
-[`Loan`](library/loan/domain/model.py) references its book and member by `UUID`,
+[`Loan`](library/loan/models.py) references its book and member by `UUID`,
 not by object reference. Each aggregate is loaded and saved independently. This
 keeps consistency boundaries explicit and aggregates persistable in isolation —
 and it is what makes the `loan/` slice possible without `book/` and `member/`
@@ -348,12 +321,12 @@ mean misspelled log levels or JWT algorithms refuse to boot.
 `structlog` is configured in
 [`library/shared/logging_config.py`](library/shared/logging_config.py) with
 `contextvars.merge_contextvars`. The HTTP middleware
-([`shared/presentation/api/middleware.py`](library/shared/presentation/api/middleware.py))
+([`shared/api/middleware.py`](library/shared/api/middleware.py))
 binds `request_id`, `method`, `path` once per request, and every downstream
 log call — including SMTP failures three layers deep — automatically inherits
 that context. Logs render as colorized console output in development, JSON in
 production. Use cases depend on the `Logger` port
-([`shared/application/logger.py`](library/shared/application/logger.py)), not
+([`shared/application/logger.py`](library/shared/ports.py)), not
 on `structlog` directly.
 
 ---
@@ -410,7 +383,7 @@ Key properties:
 - **Email verification gates `/loans/*`, not `/members`.** New members can be
   created and read regardless of `is_verified`; only the borrow/return actions
   require confirmation. The gate is a dependency
-  ([`get_verified_member`](library/auth/presentation/api/security.py)) so any
+  ([`get_verified_member`](library/auth/api/security.py)) so any
   future endpoint can adopt it by one import.
 - **Verification tokens carry `purpose=verify_email`.** Access tokens are
   rejected by `/members/verify` and vice versa, even though both are signed
@@ -435,7 +408,7 @@ Key properties:
 | Config fail-fast | ~25 | Every required field, type literal, and validator is exercised — bad input refuses to boot |
 | API end-to-end | ~45 | HTTP ↔ use case translation, exception → status mapping, auth and verification flows |
 
-**Total: 396 tests.** Each level tests one rung of abstraction; almost no
+**Total: 402 tests.** Each level tests one rung of abstraction; almost no
 duplication between levels. Run with `pytest -W error` — warnings are
 treated as failures.
 
@@ -456,7 +429,8 @@ treated as failures.
 - **pytest + pytest-asyncio** — test runner (`-W error` clean)
 - **httpx + ASGITransport** — in-process HTTP testing
 - **fakeredis** — in-process Redis for cache tests
-- **pylint** — 10.00/10 on the project tree
+- **ruff** — lint + import sorting + security (S rules, replaces bandit)
+- **mypy** — strict type-checking on library and tests
 
 Pinned versions live in [`pyproject.toml`](pyproject.toml).
 
@@ -527,9 +501,12 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 ### Run tests
 
 ```sh
-pytest                # 396 tests, warnings-as-errors
-pylint library tests  # 10.00/10
+pytest -W error          # 402 tests, warnings-as-errors
+ruff check library tests # lint + security (replaces pylint + bandit)
+mypy library tests       # strict type-check
 ```
+
+Or invoke [`/verify`](.claude/skills/verify/SKILL.md) — runs the same six checks CI runs (pytest, ruff, mypy, codespell, pip-audit, pip-licenses).
 
 ### Run the API
 
@@ -563,7 +540,7 @@ Then open `http://localhost:8000/docs` for the interactive Swagger UI.
 | `GET` | `/health` | — | Liveness probe |
 
 Exceptions are mapped to HTTP statuses centrally in
-[`shared/presentation/api/main.py`](library/shared/presentation/api/main.py):
+[`shared/api/main.py`](library/shared/api/main.py):
 
 ```python
 BookNotFound, MemberNotFound, LoanNotFound       → 404
@@ -577,9 +554,10 @@ MemberNotVerified                                → 403
 ValueError                                       → 422  # invalid VO / domain invariant
 ```
 
-Routers (one per slice, under
-[`<feature>/presentation/api/router.py`](library/book/presentation/api/router.py))
-never `try/except` — they let exceptions bubble up to the handlers.
+Routes live one per file under [`<module>/api/routes/<verb>_<entity>.py`](library/book/api/routes/),
+aggregated by [`<module>/api/__init__.py`](library/book/api/__init__.py)
+into a single `APIRouter` that `library/shared/api/main.py` includes.
+Routes never `try/except` — they let exceptions bubble up to the centralized handlers.
 
 ---
 
@@ -697,13 +675,13 @@ not an architectural truth.
 
 ### Cross-slice ports go in the consumer; impls live with the data
 
-[`CredentialVerifier`](library/auth/domain/services.py) is the canonical
+[`CredentialVerifier`](library/auth/ports.py) is the canonical
 example. The port is defined in `auth.domain` because the auth slice is the
 consumer (LoginUseCase needs it). The impl
-([`MemberCredentialVerifier`](library/member/infrastructure/credential_verifier.py))
+([`MemberCredentialVerifier`](library/member/repositories.py))
 lives in `member.infrastructure` because that's where the data — the
 `MemberRepository` — actually is. Composition root in
-[`shared/presentation/api/dependencies.py`](library/shared/presentation/api/dependencies.py)
+[`shared/api/dependencies.py`](library/shared/api/dependencies.py)
 wires them together at process boundary.
 
 This keeps the consumer slim (`auth.application` imports nothing from
@@ -720,41 +698,43 @@ tables register into one schema), the FastAPI composition root, config, and
 logging. Domain models, repositories, and use cases all live in their feature
 folder. The rule is: if exactly one feature uses it, it belongs in that feature.
 
-The composition root in `shared/presentation/api/dependencies.py` is the **one
-place** that imports concrete implementations from every slice and wires them
-together — that's where cross-slice DI is allowed, not in the slices themselves.
+The composition root in [`shared/api/dependencies.py`](library/shared/api/dependencies.py)
+is the **one place** that imports concretes across modules for the cross-module
+port wiring (auth's `CredentialVerifier` ↔ member's impl, book's `BookAvailability`
+↔ loan's impl). Feature-private DI providers (`get_book_repo`, `get_token_issuer`,
+`get_verification_token_issuer`, etc.) live in each module's `api/dependencies.py`.
 
-### Repository protocols live in `<feature>/domain/`, not `<feature>/application/`
+### Repository Protocols live in `<module>/ports.py`, never in `repositories.py`
 
 The repository expresses what the domain **demands** from persistence, in
-domain language (`find_by_isbn`, not `SELECT * FROM books`). It is the domain's
-outward-facing port. Implementations belong outside the domain; the interface
-belongs inside it. See
-[`book/domain/repository.py`](library/book/domain/repository.py).
+domain language (`find_by_isbn`, not `SELECT * FROM books`). It's the module's
+outward-facing port. Implementations belong in `repositories.py`; the interface
+belongs in `ports.py`. See
+[`book/ports.py`](library/book/ports.py).
 
-### `Cache` protocol lives in `shared/infrastructure/`, not in any domain
+### `Cache` protocol lives in `shared/ports.py`, not in any module's domain
 
 Caching is a runtime optimization — domain entities know nothing about it. The
 protocol
-([`shared/infrastructure/cache/protocol.py`](library/shared/infrastructure/cache/protocol.py))
-is consumed only by other infrastructure code (`CachedBookRepository`,
-`CachedMemberRepository`). It is an *internal* abstraction of the infrastructure
-layer, not a domain concern.
+([`shared/ports.py`](library/shared/ports.py))
+is consumed only by `Cached<Entity>Repository` decorators in each module's
+`repositories.py`. It's an *internal* abstraction of cross-cutting
+infrastructure, not a domain concern.
 
-### Pydantic schemas in `<feature>/presentation/api/`, never in `<feature>/domain/`
+### Pydantic schemas live in `<module>/api/`, never in `models.py` or `ports.py`
 
-[`BookCreate` and `BookResponse`](library/book/presentation/api/schemas.py) are
+[`BookCreate` and `BookResponse`](library/book/api/schemas.py) are
 HTTP DTOs. They translate between HTTP and domain. Validation of HTTP-format
 concerns (required fields, JSON types) happens in the schema; validation of
 domain invariants (non-empty title, valid ISBN format, password length) happens
-in the [entity](library/book/domain/model.py). No duplication — the API schema
+in the [entity](library/book/models.py). No duplication — the API schema
 is intentionally permissive, the domain rejects invalid state.
 
 ### Session-per-request, not Unit of Work
 
 A `UnitOfWork` abstraction was introduced and then removed. For this project,
 FastAPI's per-request dependency cache plus `get_session` in
-[`shared/presentation/api/dependencies.py`](library/shared/presentation/api/dependencies.py)
+[`shared/api/dependencies.py`](library/shared/api/dependencies.py)
 (which commits on success, rolls back on exception) already provide transactional
 consistency across multiple repositories — the same session is shared
 automatically. A separate `UnitOfWork` layer would have duplicated this without
@@ -773,9 +753,9 @@ pattern.
 
 ### CRUD use cases get individual repositories; multi-aggregate use cases too
 
-The simple use cases ([`AddBookUseCase`](library/book/application/use_cases/add_book.py),
-[`DeleteBookUseCase`](library/book/application/use_cases/delete_book.py)) take
-one repository. [`BorrowBookUseCase`](library/loan/application/use_cases/borrow_book.py)
+The simple use cases ([`AddBookUseCase`](library/book/use_cases/add_book.py),
+[`DeleteBookUseCase`](library/book/use_cases/delete_book.py)) take
+one repository. [`BorrowBookUseCase`](library/loan/use_cases/borrow_book.py)
 takes three (`books`, `members`, `loans`) plus a `Clock`. FastAPI's DI cache
 ensures they share the same SQL session within a request, so atomicity is
 preserved without extra abstractions.
@@ -783,12 +763,12 @@ preserved without extra abstractions.
 ### Application exceptions vs domain exceptions — and when they cross slices
 
 Domain exceptions (`MemberNotFound`, `InvalidVerificationToken`,
-`BookNotAvailable`) live in `<feature>/domain/exceptions.py` — they express
-broken invariants. Application exceptions (`MemberAlreadyExists`,
-`MemberNotVerified`, `InvalidCredentials`) live in
-`<feature>/application/exceptions.py` — they express policy violations enforced
-by use cases or HTTP gates. Both base classes (`DomainError`,
-`ApplicationError`) live in `shared/`, and the HTTP layer maps subclasses to
+`BookNotAvailable`) and application exceptions (`MemberAlreadyExists`,
+`MemberNotVerified`, `InvalidCredentials`) both live in the module's
+`exceptions.py` — but they inherit from the two distinct base classes
+[`DomainError`](library/shared/exceptions.py) (broken invariants) and
+[`ApplicationError`](library/shared/exceptions.py) (workflow / policy
+violations enforced by use cases or HTTP gates). The HTTP layer maps subclasses to
 status codes generically.
 
 `MemberNotVerified` is the policy example: it's an `ApplicationError` (not a

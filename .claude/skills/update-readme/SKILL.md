@@ -14,20 +14,20 @@ Re-sync the **machine-derivable** sections of [`README.md`](../../../README.md) 
 | README section | Source of truth | How to re-derive |
 |---|---|---|
 | **Project layout** (folder tree) | `library/` directory structure | `find library -type d -not -path '*__pycache__*'` |
-| **HTTP API** (endpoint table) | All `*/presentation/api/router.py` files | grep / read routers |
+| **HTTP API** (endpoint table) | All `*/api/routes/*.py` files | grep / read each route file |
 | **Tech stack** (library list) | `pyproject.toml` `dependencies` | parse `[project]` and `[project.optional-dependencies]` |
-| **Test count** ("N tests") | actual test suite | `pytest --collect-only -q | tail -1` |
-| **Pylint score** ("10.00/10") | actual pylint run | `pylint library tests | tail -2` |
-| **Bounded contexts list** | top-level folders in `library/` | inspect `library/*/` |
+| **Test count** ("N tests") | actual test suite | `pytest --collect-only -q \| tail -1` |
+| **Lint/type-check status** | actual runs | `ruff check library tests` + `mypy library tests` |
+| **Module list** | top-level folders in `library/` | inspect `library/*/` |
 | **Required env vars** | `shared/config.py` `Settings` class | parse Pydantic model |
 
 ## Sections this skill does **NOT** touch
 
 These are human-curated and must not be auto-rewritten:
 
-- 📌 "The Dependency Rule, made concrete" — architectural philosophy
+- 📌 "The Dependency Rule, made concrete" — architectural philosophy (file-level dependency rule explanation)
 - 📌 "Core patterns demonstrated" — explanation of each pattern
-- 📌 "Architectural decisions worth highlighting" — rationale
+- 📌 "Architectural decisions worth highlighting" — rationale (incl. the "Hybrid: flat per-module layout" decision)
 - 📌 "What this project deliberately does NOT do" — intentional omissions
 - 📌 "Auth & email verification" lifecycle diagram — domain narrative
 
@@ -45,7 +45,7 @@ ls library/                                                                    #
 pytest --collect-only -q 2>/dev/null | tail -3                                # test count
 ```
 
-Read `pyproject.toml` for dependencies. Read each `library/*/presentation/api/router.py` to enumerate endpoints.
+Read `pyproject.toml` for dependencies. Read each `library/*/api/routes/*.py` to enumerate endpoints.
 
 ### Step 2 — Compare with README
 
@@ -96,14 +96,16 @@ Replace the existing tree with the regenerated one. Preserve:
 - The inline comments that explain folder purposes (`# Book (entity, with description)`)
 - The trailing context after the tree
 
-If you add a new slice, give it the same comment style as existing entries:
+If you add a new module, give it the same comment style as existing entries (flat layout, not layer folders):
 
 ```
-├── reservation/                  # Bounded context: reservations
-│   ├── domain/
-│   ├── application/
-│   ├── infrastructure/
-│   └── presentation/api/
+├── reservation/                  # Module: reservations
+│   ├── models.py
+│   ├── ports.py
+│   ├── exceptions.py
+│   ├── repositories.py
+│   ├── use_cases/
+│   └── api/
 ```
 
 #### HTTP API table
@@ -128,11 +130,11 @@ pytest --collect-only -q 2>/dev/null | tail -1
 
 Look for "N tests collected" or similar. Update the `> N tests.` line at the top and the test-pyramid table totals at the bottom.
 
-#### Bounded contexts list
+#### Module list
 
-If a new slice was added, surface it in:
-- The "Project layout" intro paragraph: `"sliced by bounded context at the top level (book/, member/, loan/, auth/, notification/, <new>/)"`
-- The "Cross-slice imports" subsection — if the new slice consumes/provides ports, document the direction
+If a new module was added, surface it in:
+- The "Project layout" intro paragraph: `"sliced into modules (book/, member/, loan/, auth/, notification/, <new>/)"`
+- The "Cross-module imports" subsection — if the new module consumes/provides ports, document the direction
 
 #### Required env vars in "Configure" section
 
@@ -178,7 +180,7 @@ When in doubt, **surface the diff to the human and stop**.
 find library -type d -not -path '*__pycache__*' -not -path '*.egg-info*' | sort
 
 # All API routes (from FastAPI routers)
-grep -rE "@router\.(get|post|put|patch|delete)" library/*/presentation/api/router.py
+grep -rE "@router\.(get|post|put|patch|delete)" library/*/api/routes/*.py
 
 # Dependencies from pyproject
 python -c "import tomllib; print('\n'.join(tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies']))"
@@ -187,7 +189,7 @@ python -c "import tomllib; print('\n'.join(tomllib.load(open('pyproject.toml', '
 pytest --collect-only -q 2>/dev/null | tail -1
 
 # Pylint score
-pylint library tests 2>/dev/null | tail -2
+ruff check library tests && mypy library tests
 
 # Required env vars (no default)
 grep -nE "^\s+\w+: \w+( = Field)?" library/shared/config.py
