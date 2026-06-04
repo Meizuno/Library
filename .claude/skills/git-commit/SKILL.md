@@ -175,12 +175,13 @@ Before writing the commit:
 
 ```sh
 pytest -W error
-pylint library tests
+ruff check library tests
+mypy library tests
 ```
 
-Both must pass. If either fails, **do not commit** — fix the failure first. Never use `--no-verify` to skip hooks.
+All three must pass. If any fails, **do not commit** — fix the failure first. Never use `--no-verify` to skip hooks.
 
-(For a slower task with more time, run the full `/verify` skill: pytest + pylint + codespell + bandit + pip-audit + pip-licenses.)
+(For a slower task with more time, run the full `/verify` skill: pytest + ruff + mypy + codespell + pip-audit + pip-licenses.)
 
 ### Step 7 — Propose the message, then commit
 
@@ -287,7 +288,7 @@ chore(deps): bump argon2-cffi to 23.1.0
 ```
 
 ```
-ci: add bandit medium-severity threshold
+ci: pin ruff to 0.7.0
 ```
 
 ## Examples (bad — fix before committing)

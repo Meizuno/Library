@@ -119,7 +119,7 @@ After the slice's code is written:
 /verify
 ```
 
-(Or at minimum `pytest -W error && pylint library tests`.)
+(Or at minimum `pytest -W error && ruff check library tests && mypy library tests`.)
 
 If verification fails — **fix it on this branch**. Do not commit broken code, do not move to the next slice.
 

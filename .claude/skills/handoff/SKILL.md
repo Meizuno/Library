@@ -53,7 +53,8 @@ Write the file to:
 ## Tests / verify status
 
 - `pytest -W error`: <pass / N failing — list them>
-- `pylint library tests`: <score>
+- `ruff check library tests`: <pass/fail>
+- `mypy library tests`: <pass/fail>
 - (skip others if not relevant)
 
 ## Open questions for the human

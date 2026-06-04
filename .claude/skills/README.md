@@ -45,7 +45,7 @@ Run before every commit and before declaring work done.
 
 | Skill | Purpose |
 |---|---|
-| [`/verify`](verify/SKILL.md) | Full pre-commit suite — pytest + pylint + codespell + bandit + pip-audit + pip-licenses |
+| [`/verify`](verify/SKILL.md) | Full pre-commit suite — pytest + ruff + mypy + codespell + pip-audit + pip-licenses |
 | [`/diagnose`](diagnose/SKILL.md) | 6-phase debug methodology — build loop, hypothesise, instrument, fix at the right seam, post-mortem |
 
 ### 📚 Documentation

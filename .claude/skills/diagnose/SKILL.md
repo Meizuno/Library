@@ -178,7 +178,7 @@ This codebase makes debugging **much easier** than a typical project:
 - **Parametrized contract tests** — bug only in raw SQL? in the cached wrapper? in the Redis variant? The fixture parameter tells you immediately.
 - **`structlog` with `contextvars`** — every log line carries `request_id`, so you can grep one request's full trace
 - **`pytest -W error`** — surfaces deprecation warnings before they become bugs
-- **Type hints + `pylint`** — many "bugs" are actually type mismatches caught at lint
+- **Type hints + `mypy` (strict)** — many "bugs" are actually type mismatches caught at type-check; ruff catches the static-analysis subset
 
 **Leverage these before reaching for live debugging.** If `pytest tests/<slice>/domain/` passes but `pytest tests/<slice>/application/` fails, the bug is in orchestration — narrow scope by 90% immediately.
 

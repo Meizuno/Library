@@ -10,11 +10,11 @@ When the human says "add MongoDB backend for Book" / "add file-based BookReposit
 ## Pre-flight
 
 1. Read [AGENTS.md](../../../AGENTS.md) — Repository pattern rules.
-2. Identify the **protocol** to implement: `library/<slice>/domain/repository.py`
+2. Identify the **protocol** to implement: `library/<module>/ports.py`
 3. Read existing implementations to mirror style:
-   - [`SqlBookRepository`](../../../library/book/infrastructure/sql_repository.py) — production reference, includes the soft-delete + filter-on-read pattern
-   - [`CachedBookRepository`](../../../library/book/infrastructure/cached_repository.py) — decorator pattern (different role)
-4. Read the **contract test** that **all** impls must pass: [`tests/book/infrastructure/conftest.py`](../../../tests/book/infrastructure/conftest.py) + [`tests/book/infrastructure/test_repository.py`](../../../tests/book/infrastructure/test_repository.py)
+   - [`SqlBookRepository`](../../../library/book/repositories.py) — production reference, includes the soft-delete + filter-on-read pattern, uses `.returning(table.c.id) + scalar_one_or_none()` for DML
+   - [`CachedBookRepository`](../../../library/book/repositories.py) — decorator pattern (different role; same file)
+4. Read the **contract test** that **all** impls must pass: [`tests/book/repositories/conftest.py`](../../../tests/book/repositories/conftest.py) + [`tests/book/repositories/test_contract.py`](../../../tests/book/repositories/test_contract.py)
 
 ## Workflow
 
@@ -25,17 +25,18 @@ When the human says "add MongoDB backend for Book" / "add file-based BookReposit
 - **Production or test-only**? Production impls require connection pooling, error handling. Test-only impls can be simpler.
 - **Will it support caching** (i.e., be wrappable by `Cached<Entity>Repository`)? If yes, it must respect the cache invalidation contract (write methods must work even if cache layer is bypassed).
 
-### Step 2 — Create the impl file
+### Step 2 — Add the impl class
 
-Path: `library/<slice>/infrastructure/<backend>_<entity>_repository.py`
+For a new backend, add a new class to `library/<module>/repositories.py` next to the existing `Sql*Repository`. (If the module has many repository impls and the file is getting unwieldy, split into a sibling file — but the default is co-location.)
 
 Skeleton:
 
 ```python
 from uuid import UUID
-from library.<slice>.domain.model import <Entity>
-from library.<slice>.domain.repository import <Entity>Repository
-from library.<slice>.domain.exceptions import <Entity>NotFound
+
+from library.<module>.exceptions import <Entity>NotFound
+from library.<module>.models import <Entity>
+from library.<module>.ports import <Entity>Repository
 
 
 class <Backend><Entity>Repository:
@@ -96,7 +97,7 @@ These are **enforced by the contract test**:
 
 ### Step 4 — Register in the contract test
 
-Edit `tests/<slice>/infrastructure/conftest.py`:
+Edit `tests/<module>/repositories/conftest.py`:
 
 ```python
 @pytest.fixture(
@@ -112,9 +113,9 @@ async def empty_<entity>_repo(request, sql_<entity>_repo, <your_backend>_<entity
 
 Add a fixture that provisions your backend (Docker-compose-managed for Mongo, tempfile for file, etc.).
 
-### Step 5 — Optional: wire in composition root
+### Step 5 — Optional: wire in module-local DI
 
-If this is a **production-bound** impl (not test-only), edit [`library/shared/presentation/api/dependencies.py`](../../../library/shared/presentation/api/dependencies.py) to provide it as an alternative:
+If this is a **production-bound** impl (not test-only), edit `library/<module>/api/dependencies.py` (the feature-local `get_<entity>_repo`) to provide it as an alternative:
 
 ```python
 def get_<entity>_repository(
@@ -131,11 +132,7 @@ def get_<entity>_repository(
 
 ### Step 6 — Verify
 
-```sh
-pytest tests/<slice>/infrastructure/ -W error    # contract test passes for the new impl
-pytest -W error                                  # nothing else broke
-pylint library tests                             # still 10.00/10
-```
+Run [`/verify`](../verify/SKILL.md) — all six gates (pytest, ruff, mypy, codespell, pip-audit, pip-licenses) must pass clean.
 
 If the contract test fails on the new impl, **the impl is wrong, not the test**. Fix the impl until it passes — that's the LSP guarantee.
 
@@ -143,9 +140,9 @@ If the contract test fails on the new impl, **the impl is wrong, not the test**.
 
 | Impl | File | What it demonstrates |
 |---|---|---|
-| In-memory | [in_memory_repository.py](../../../library/book/infrastructure/in_memory_repository.py) | Simplest, dict-based, perfect for tests |
-| SQL | [sql_repository.py](../../../library/book/infrastructure/sql_repository.py) | Production-quality with SQLAlchemy Core, no ORM |
-| Cached | [cached_repository.py](../../../library/book/infrastructure/cached_repository.py) | Decorator (different role from new backend) |
+| SQL (book) | [`book/repositories.py`](../../../library/book/repositories.py) | Production-quality with SQLAlchemy Core, no ORM; soft-delete; `.returning(...) + scalar_one_or_none()` for DML detection |
+| Cached (book) | [`book/repositories.py`](../../../library/book/repositories.py) | Decorator wrapping any `BookRepository`; cache invalidation on writes |
+| SQL (loan) | [`loan/repositories.py`](../../../library/loan/repositories.py) | Hard delete (no soft-delete column); FK `ondelete="RESTRICT"` |
 
 ## Do not
 

@@ -1,103 +1,101 @@
 ---
 name: add-slice
-description: Generate a new bounded-context slice with full hexagonal layer skeleton (domain, application, infrastructure, presentation).
+description: Generate a new module (bounded-context slice) with the project's flat-per-module layout (models / ports / exceptions / repositories / use_cases / api).
 ---
 
-# Add Bounded-Context Slice
+# Add Module (Bounded-Context Slice)
 
-When the human says "add a new slice X" or "add bounded context X" (e.g., "add `reservation/`", "add `payment/`"), follow this skill to create the **complete folder + file skeleton**.
+When the human says "add a new module X" or "add slice X" (e.g., "add `reservation/`", "add `payment/`"), follow this skill to create the **complete flat-file skeleton**.
 
-This is a **bigger** task than `/add-use-case`. Only use this when introducing a **new aggregate root** with its own lifecycle, not a new operation on an existing one.
+This is a **bigger** task than `/add-use-case`. Only use it when introducing a **new aggregate root** with its own lifecycle, not a new operation on an existing one.
 
 ## Pre-flight
 
-1. Read [AGENTS.md](../../../AGENTS.md) — confirm slice structure rules and cross-slice import policy.
-2. Read existing slices as reference:
-   - [`book/`](../../../library/book/) — simplest (no cross-slice deps)
-   - [`member/`](../../../library/member/) — has VOs (Email, Password), credential adapters
-   - [`loan/`](../../../library/loan/) — multi-aggregate (uses Book, Member ports)
-   - [`auth/`](../../../library/auth/) — defines ports consumed by other slices
-   - [`notification/`](../../../library/notification/) — minimal (port + impl, no use case in itself)
+1. Read [AGENTS.md](../../../AGENTS.md) — confirm flat-layout rules and cross-module import policy.
+2. Read existing modules as reference:
+   - [`book/`](../../../library/book/) — simplest standalone module (no cross-module deps, full CRUD, VO + cache decorator)
+   - [`member/`](../../../library/member/) — has VOs (Email, Password), credential + JWT adapters co-located in `repositories.py`
+   - [`loan/`](../../../library/loan/) — multi-aggregate (consumes Book and Member ports), no cache, no VOs
+   - [`auth/`](../../../library/auth/) — defines ports consumed by other modules, has its own `api/security.py`
+   - [`notification/`](../../../library/notification/) — minimal (port + impl, no use cases, no api)
 
 ## Workflow
 
 ### Step 1 — Confirm scope with the human
 
-Before generating skeleton, ask:
+Before generating the skeleton, ask:
 
-- What's the **aggregate root** for this slice? (entity name)
+- What's the **aggregate root** for this module? (entity name)
 - What **VOs** does it own? (e.g., Reservation owns `ReservationCode`, `ReservationStatus`)
 - What **use cases** are needed initially? List them as `<verb>_<noun>`.
-- Does it **consume ports** from other slices? Which?
-- Does it **expose ports** for other slices to consume?
-- Will it have a **REST API**, or is it driven by other slices only (like `notification/`)?
-- Cache decorator? (Books and Members have it; Loans does not.)
-- Soft delete on this aggregate? (Books and Members do; Loans and RefreshTokens do not.) See `deleted_at` pattern in [`books_table`](../../../library/book/infrastructure/sql_table.py) / [`members_table`](../../../library/member/infrastructure/sql_table.py).
+- Does it **consume ports** from other modules? Which?
+- Does it **expose ports** for other modules to consume?
+- Will it have a **REST API**, or is it driven by other modules only (like `notification/`)?
+- Cache decorator? (Books and Members have it; Loans and Auth do not.)
+- Soft delete on this aggregate? (Books and Members do; Loans and RefreshTokens do not.) See `deleted_at` pattern in [`books_table`](../../../library/book/repositories.py) / [`members_table`](../../../library/member/repositories.py).
 
 **Wait for human confirmation. Do not generate the skeleton without it.**
 
-### Step 2 — Generate folder skeleton
+### Step 2 — Generate the flat module skeleton
 
 ```
-library/<slice>/
+library/<module>/
 ├── __init__.py
-├── domain/
+├── models.py            # Entity + any VOs (framework-free)
+├── ports.py             # All Protocols owned by this module (framework-free)
+├── exceptions.py        # DomainError + ApplicationError subclasses
+├── repositories.py      # <entity>_table + Sql impl (+ Cached if caching is decided)
+│                        #   + any non-repo adapters this module provides for other modules' ports
+├── use_cases/
 │   ├── __init__.py
-│   ├── model.py               # Entity (e.g., Reservation)
-│   ├── value_objects.py       # if any VOs
-│   ├── repository.py          # <Entity>Repository protocol
-│   ├── services.py            # ports consumed by this slice (optional)
-│   └── exceptions.py          # <Entity>NotFound, invariant violations
-├── application/
-│   ├── __init__.py
-│   ├── commands.py            # frozen dataclass DTOs
-│   ├── exceptions.py          # <Entity>AlreadyExists, policy violations
-│   └── use_cases/
-│       ├── __init__.py
-│       └── <each use case>.py
-├── infrastructure/
-│   ├── __init__.py
-│   ├── sql_table.py           # books_table-style declaration on shared MetaData
-│   ├── sql_repository.py
-│   └── cached_repository.py   # only if caching is decided
-└── presentation/
-    ├── __init__.py
-    └── api/
+│   └── <each use case>.py   # Command DTO + UseCase class together
+└── api/                 # only if the module is exposed via HTTP
+    ├── __init__.py      # aggregator: APIRouter() + include_router(...) per route
+    ├── dependencies.py  # feature-local DI providers
+    ├── schemas.py       # shared response shape (e.g., <Entity>Response)
+    └── routes/
         ├── __init__.py
-        ├── schemas.py         # Pydantic <Entity>Create, <Entity>Response
-        ├── dependencies.py    # FastAPI providers for use cases
-        └── router.py          # APIRouter
+        └── <each route>.py  # APIRouter(prefix=...) + request schema + handler
+```
+
+Minimal-module shape (no api / no use_cases — only `notification/` looks like this):
+
+```
+library/<module>/
+├── __init__.py
+├── models.py
+├── ports.py
+└── <impl>.py            # e.g., email_notifier.py
 ```
 
 Also create the **test tree** mirroring source:
 
 ```
-tests/<slice>/
+tests/<module>/
 ├── __init__.py
-├── domain/
+├── test_models.py       # entity + VO tests
+├── repositories/
 │   ├── __init__.py
-│   ├── test_model.py
-│   └── test_value_objects.py
-├── application/
+│   ├── conftest.py      # parametrized empty_<entity>_repo fixture (sql, optionally cache_*)
+│   ├── test_contract.py # protocol-satisfaction + behavior contract
+│   ├── test_cached.py   # only if a Cached*Repository exists
+│   └── test_soft_delete.py  # only if soft-delete is part of the spec
+├── use_cases/
 │   ├── __init__.py
+│   ├── conftest.py      # local fixtures (e.g., a default command)
 │   └── test_<each use case>.py
-├── infrastructure/
-│   ├── __init__.py
-│   ├── conftest.py            # parametrized repository fixture (sql, optionally cache_redis / cache_in_memory)
-│   └── test_repository_contract.py
-└── presentation/
-    └── api/
-        ├── __init__.py
-        └── test_<each endpoint>.py
+└── api/
+    ├── __init__.py
+    └── test_api.py      # end-to-end HTTP behavior
 ```
 
-### Step 3 — Generate the entity (domain/model.py)
+### Step 3 — Generate the entity (models.py)
 
-Mirror [`Book`](../../../library/book/domain/model.py) or [`Member`](../../../library/member/domain/model.py):
+Mirror [`Book`](../../../library/book/models.py) or [`Member`](../../../library/member/models.py):
 
 ```python
-from uuid import UUID, uuid4
 from dataclasses import dataclass, field
+from uuid import UUID, uuid4
 
 
 @dataclass(kw_only=True)
@@ -105,49 +103,49 @@ class <Entity>:
     id: UUID = field(init=False, default_factory=uuid4)
     # ... fields ...
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # validation only — no I/O
         ...
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, <Entity>):
             return NotImplemented
         return self.id == other.id
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.id)
 
     # state transitions as methods (e.g., mark_verified, cancel)
 ```
 
-### Step 4 — Generate VOs (domain/value_objects.py)
+### Step 4 — Generate VOs (in the same models.py)
 
-Mirror [`ISBN`](../../../library/book/domain/value_objects.py) or [`Email`](../../../library/member/domain/value_objects.py):
+Mirror [`ISBN`](../../../library/book/models.py) or [`Email`](../../../library/member/models.py):
 
 ```python
-from dataclasses import dataclass
-
-
 @dataclass(frozen=True)
 class <ValueObject>:
     value: str
 
-    def __post_init__(self):
-        # validation
-        # normalization via object.__setattr__ if frozen
+    def __post_init__(self) -> None:
+        # validation; normalization via object.__setattr__ (frozen workaround)
         ...
 ```
 
-### Step 5 — Generate the repository protocol (domain/repository.py)
+VOs go in the **same `models.py`** as the entity unless the file is genuinely getting unwieldy — keep the module flat.
 
-Mirror [`BookRepository`](../../../library/book/domain/repository.py):
+### Step 5 — Generate the ports (ports.py)
+
+Mirror [`BookRepository`](../../../library/book/ports.py):
 
 ```python
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 from uuid import UUID
-from library.<slice>.domain.model import <Entity>
+
+from library.<module>.models import <Entity>
 
 
+@runtime_checkable
 class <Entity>Repository(Protocol):
     async def find_by_id(self, id: UUID) -> <Entity> | None: ...
     async def create(self, entity: <Entity>) -> None: ...
@@ -156,83 +154,148 @@ class <Entity>Repository(Protocol):
     async def list_all(self) -> list[<Entity>]: ...
 ```
 
-**`create` and `update` are separate** — no upserts. Add domain-specific queries (`find_by_email`, `find_active_due_on`) as needed.
+- `@runtime_checkable` lets the `test_satisfies_<port>_protocol` test use `isinstance(impl, Port)`.
+- **`create` and `update` are separate** — no upserts.
+- Add domain-specific queries (`find_by_email`, `find_active_due_on`) as needed.
+- Any service ports the module owns go in this same file.
 
-### Step 6 — Generate domain exceptions
+### Step 6 — Generate exceptions (exceptions.py)
 
 ```python
-# library/<slice>/domain/exceptions.py
-from library.shared.domain.exceptions import DomainError
+from library.shared.exceptions import ApplicationError, DomainError
 
 
 class <Entity>NotFound(DomainError):
     pass
 
 
-class <Entity>InvariantViolation(DomainError):
+class <Entity>AlreadyExists(ApplicationError):
     pass
+
+
+# ... other domain / application exceptions for this module ...
 ```
 
-Application exceptions go in `application/exceptions.py`, inheriting from `shared.application.exceptions.ApplicationError`.
+Domain exceptions extend `DomainError`; application exceptions extend `ApplicationError`. Both bases live in [`library/shared/exceptions.py`](../../../library/shared/exceptions.py).
 
-### Step 7 — Generate SQL table + repository
+### Step 7 — Generate the SQL table + repository (repositories.py)
 
-`infrastructure/sql_table.py`:
+Mirror [`SqlBookRepository`](../../../library/book/repositories.py):
 
 ```python
-from sqlalchemy import Column, String, ...
-from sqlalchemy.dialects.postgresql import UUID
-from library.shared.infrastructure.sql_metadata import metadata
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy import Column, String, Table, Uuid, insert, select, update as sql_update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from library.<module>.exceptions import <Entity>NotFound
+from library.<module>.models import <Entity>
+from library.shared.adapters import metadata
 
 <entity>_table = Table(
     "<entity_plural>",
-    metadata,
-    Column("id", UUID(as_uuid=True), primary_key=True),
-    # ...
+    metadata,                          # <- always the shared MetaData instance
+    Column("id", Uuid, primary_key=True),
+    # ... other columns ...
 )
+
+
+class Sql<Entity>Repository:
+    def __init__(self, session: AsyncSession):
+        self._session = session
+
+    def _row_to_<entity>(self, row: Any) -> <Entity>:
+        entity = <Entity>(...)
+        entity.id = row.id
+        return entity
+
+    async def find_by_id(self, id: UUID) -> <Entity> | None:
+        row = (await self._session.execute(
+            select(<entity>_table).where(<entity>_table.c.id == id)
+        )).first()
+        return self._row_to_<entity>(row) if row else None
+
+    async def update(self, entity: <Entity>) -> None:
+        stmt = (
+            sql_update(<entity>_table)
+            .where(<entity>_table.c.id == entity.id)
+            .values(...)
+            .returning(<entity>_table.c.id)
+        )
+        result = await self._session.execute(stmt)
+        if result.scalar_one_or_none() is None:
+            raise <Entity>NotFound(f"<Entity> {entity.id} not found")
+
+    # ... create, delete, list_all, domain-specific queries ...
 ```
 
-**Always use the shared `metadata`** so all tables register into one schema.
+**Always use the shared `metadata`** so all tables register into one schema. **Always detect "0 rows affected" via `.returning(table.c.id) + scalar_one_or_none()`** — never `result.rowcount` (it forces a `# type: ignore`).
 
-### Step 8 — Wire composition root
+If the module also provides an **adapter for another module's port** (the asymmetric pattern), it goes in this same `repositories.py` — see `MemberCredentialVerifier` in [member/repositories.py](../../../library/member/repositories.py) or `LoanBookAvailability` in [loan/repositories.py](../../../library/loan/repositories.py).
 
-Edit [`library/shared/presentation/api/dependencies.py`](../../../library/shared/presentation/api/dependencies.py) to:
+### Step 8 — Generate use cases
 
-1. Add `get_<entity>_repo` (returns the `Sql<Entity>Repository`, optionally wrapped by `Cached<Entity>Repository`)
-2. Add `get_<verb>_<noun>_use_case` for each use case
-3. Register the router (in `shared/presentation/api/main.py`)
+One file per use case under `use_cases/<verb>_<entity>.py`. Each file contains BOTH the Command DTO and the UseCase class. See [`AddBookUseCase`](../../../library/book/use_cases/add_book.py):
 
-Tests override `get_<entity>_repo` automatically through the `<entity>_repo` fixture in [`tests/conftest.py`](../../../tests/conftest.py) — there is no separate in-memory backend; SQLite `:memory:` plays both roles.
+```python
+from dataclasses import dataclass
 
-### Step 10 — Update README
+from library.<module>.exceptions import <ApplicationException>
+from library.<module>.models import <Entity>
+from library.<module>.ports import <Entity>Repository
 
-Add the new slice to:
-- "Project layout" section (folder tree)
-- "Cross-slice imports" if applicable
-- "HTTP API" table if API endpoints added
 
-### Step 11 — Verify
+@dataclass(frozen=True)
+class <Verb><Noun>Command:
+    # only fields the use case needs; not the HTTP shape
+    ...
 
-```sh
-pytest -W error
-pylint library tests
+
+class <Verb><Noun>UseCase:
+    def __init__(self, repo: <Entity>Repository, ...):
+        self._repo = repo
+
+    async def execute(self, command: <Verb><Noun>Command) -> <Entity>:
+        ...
 ```
 
-Both must pass clean. Pylint must score **10.00/10**. See `/verify` skill.
+Use cases NEVER import from `repositories.py` or `api/`.
 
-## Reference
+### Step 9 — Generate API (only if the module is exposed via HTTP)
 
-Smallest reference slice: [`notification/`](../../../library/notification/) — has only domain (port + VO) and infrastructure (one impl). No use cases of its own, no API. Adopt this shape if your slice is a service-port-only.
+Mirror [`book/api/`](../../../library/book/api/):
 
-Standard reference: [`book/`](../../../library/book/) — full CRUD with VO, multi-impl repository, cache decorator, API.
+- `api/__init__.py` aggregates per-route routers via `include_router`. If the module's routes share an auth gate, declare it once on the aggregator's `APIRouter(dependencies=[Depends(get_verified_member)])` — see [`loan/api/__init__.py`](../../../library/loan/api/__init__.py).
+- `api/dependencies.py` — feature-local DI providers (`get_<entity>_repo`, one per use case). Imports cross-cutting providers from `library.shared.api.dependencies`.
+- `api/schemas.py` — the shared response shape (e.g., `<Entity>Response`) used by multiple routes.
+- `api/routes/<verb>_<entity>.py` — one file per route, owning its own `APIRouter(prefix="/<entity_plural>", tags=["<entity>"])`, its request schema (Pydantic), and the handler.
 
-Multi-aggregate reference: [`loan/`](../../../library/loan/) — consumes Book and Member ports, no cache, no VOs.
+### Step 10 — Wire cross-module port bridges (if any)
+
+If the module **provides** an adapter for **another module's port** (e.g., your new `Recommendation` module provides an impl of `book.ports.SomeBookPort`), edit the composition root in [`library/shared/api/dependencies.py`](../../../library/shared/api/dependencies.py) to wire the bridge. Mirror the pattern of `get_credential_verifier` (auth port → member impl) or `get_book_availability` (book port → loan impl). Feature-private DI stays in the module's own `api/dependencies.py`.
+
+### Step 11 — Register the router
+
+In [`library/shared/api/main.py`](../../../library/shared/api/main.py), import the aggregated router and `app.include_router(...)`. Also register any custom exception handlers for the new module's `exceptions.py` classes.
+
+### Step 12 — Verify
+
+Run [`/verify`](../verify/SKILL.md). All six steps (pytest, ruff, mypy, codespell, pip-audit, pip-licenses) must pass clean.
+
+## Reference shapes
+
+- **Minimal (port + impl only):** [`notification/`](../../../library/notification/) — `models.py` + `ports.py` + one impl file. No use_cases, no api.
+- **Standard CRUD:** [`book/`](../../../library/book/) — VO in models.py, full repository pattern with cache decorator, REST API.
+- **Multi-aggregate:** [`loan/`](../../../library/loan/) — consumes Book and Member ports, no cache, no VOs, router has shared auth gate.
+- **Identity / session:** [`member/`](../../../library/member/), [`auth/`](../../../library/auth/) — JWT issuer adapters co-located in `repositories.py`, custom security primitives in `api/security.py` (auth only).
 
 ## Do not
 
 - ❌ Generate the skeleton without confirming scope with the human first
-- ❌ Skip the test tree — slices and tests are 1:1 mirrors
-- ❌ Add `from library.<slice>.infrastructure import ...` in `domain/` or `application/`
+- ❌ Skip the test tree — modules and tests mirror each other
+- ❌ Add `from library.<module>.repositories import ...` in `models.py`, `ports.py`, or `use_cases/`
 - ❌ Forget to register the SQL table on the shared `metadata`
-- ❌ Add the slice to `library/application/use_cases/` (root legacy) — use `library/<slice>/`
-- ❌ Add cross-slice imports in the wrong direction (see Dependency Rule in AGENTS.md)
+- ❌ Reintroduce `domain/` / `application/` / `infrastructure/` / `presentation/` subfolders — the project is deliberately flat
+- ❌ Use `result.rowcount` for DML; always `.returning(table.c.id) + scalar_one_or_none()`
+- ❌ Add cross-module imports in the wrong direction (see Dependency Rule in AGENTS.md)

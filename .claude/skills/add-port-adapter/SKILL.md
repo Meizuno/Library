@@ -21,14 +21,15 @@ Typical use cases:
 
 | Port | Lives in | Impls |
 |---|---|---|
-| `Clock` | `shared/application/clock.py` | `SystemClock` in `shared/infrastructure/clock.py` |
-| `PasswordHasher` | `shared/application/password_hasher.py` | `Argon2PasswordHasher` in `shared/infrastructure/argon2_password_hasher.py` |
-| `Logger` | `shared/application/logger.py` | `StructlogLogger` in `shared/infrastructure/structlog_logger.py` |
-| `Notifier` | `notification/domain/services.py` | `EmailNotifier` in `notification/infrastructure/email_notifier.py` |
-| `TokenIssuer` | `auth/domain/services.py` | `PyJWTTokenIssuer` in `auth/infrastructure/pyjwt_issuer.py` |
-| `VerificationTokenIssuer` | `member/domain/services.py` | `PyJWTVerificationTokenIssuer` in `member/infrastructure/pyjwt_verification_token_issuer.py` |
-| `CredentialVerifier` | `auth/domain/services.py` | `MemberCredentialVerifier` in `member/infrastructure/credential_verifier.py` (cross-slice!) |
-| `Cache` | `shared/infrastructure/cache/protocol.py` | `RedisCache`, `InMemoryCache` |
+| `Clock` | `shared/ports.py` | `SystemClock` in `shared/adapters.py` |
+| `PasswordHasher` | `shared/ports.py` | `Argon2PasswordHasher` in `shared/adapters.py` |
+| `Logger` | `shared/ports.py` | structlog-backed via `get_logger` in `shared/adapters.py` |
+| `Cache` | `shared/ports.py` | `RedisCache` + `InMemoryCache` in `shared/adapters.py` |
+| `Notifier` | `notification/ports.py` | `EmailNotifier` in `notification/email_notifier.py` |
+| `TokenIssuer` | `auth/ports.py` | `PyJWTTokenIssuer` in `auth/repositories.py` |
+| `VerificationTokenIssuer` | `member/ports.py` | `PyJWTVerificationTokenIssuer` in `member/repositories.py` |
+| `CredentialVerifier` | `auth/ports.py` | `MemberCredentialVerifier` in `member/repositories.py` (cross-module!) |
+| `BookAvailability` | `book/ports.py` | `LoanBookAvailability` in `loan/repositories.py` (cross-module!) |
 
 ## Workflow
 
@@ -45,21 +46,21 @@ Ask **only what's not obvious**:
 ### Step 2 — Decide where the Port lives
 
 ```
-Who consumes this port (use cases from which slices)?
+Who consumes this port (use cases from which modules)?
 │
-├── Multiple slices (e.g., Clock, Logger, PasswordHasher)
-│   → shared/application/<name>.py  (or shared/domain/ for pure-domain ports)
+├── Multiple modules (e.g., Clock, Logger, PasswordHasher, Cache)
+│   → shared/ports.py
 │
-├── Single slice, and impl uses no other slice's data
-│   → <slice>/domain/services.py
+├── Single module, and impl uses no other module's data
+│   → <module>/ports.py
 │
-└── Single slice (consumer), but impl needs another slice's data
+└── Single module (consumer), but impl needs another module's data
     (e.g., auth needs CredentialVerifier impl that reads from member)
-    → <consumer-slice>/domain/services.py
-    → impl in <provider-slice>/infrastructure/  ← asymmetric, by design
+    → <consumer-module>/ports.py
+    → impl in <provider-module>/repositories.py  ← asymmetric, by design
 ```
 
-**Rule:** the port lives **with the consumer**. The impl can live anywhere that has the data — even another slice's `infrastructure/`. This is exactly the `CredentialVerifier` pattern documented in the README.
+**Rule:** the port lives **with the consumer**. The impl can live anywhere that has the data — even another module's `repositories.py`. This is exactly the `CredentialVerifier` pattern (auth port, member impl) and `BookAvailability` pattern (book port, loan impl) documented in the README.
 
 ### Step 3 — Decide where the Adapter lives
 
@@ -67,25 +68,27 @@ Who consumes this port (use cases from which slices)?
 What backs this impl?
 │
 ├── Library / external service (Argon2, Stripe, Resend, Postgres)
-│   → If port is in shared/      → shared/infrastructure/
-│   → If port is in <slice>/     → <slice>/infrastructure/
+│   → If port is in shared/      → shared/adapters.py
+│   → If port is in <module>/    → <module>/repositories.py (or its own file
+│                                  if the module is minimal, like notification's
+│                                  email_notifier.py)
 │
-├── Another slice's data (CredentialVerifier reading Member)
-│   → Provider slice's infrastructure/
+├── Another module's data (CredentialVerifier reading Member)
+│   → Provider module's repositories.py
 │
-└── In-memory / fake (for tests, dev)
-    → Same folder as the real impl, named in_memory_<name>.py or fake_<name>.py
+└── In-memory / fake (for tests)
+    → tests/conftest.py (the FakeClock / FakePasswordHasher / FakeNotifier pattern)
 ```
 
-### Step 4 — Generate the Port file (if new)
+### Step 4 — Generate the Port file (or add to existing `ports.py`)
 
-For a port living in `shared/application/`:
+For a port living in shared (cross-cutting), append to [`library/shared/ports.py`](../../../library/shared/ports.py):
 
 ```python
-# library/shared/application/<name>.py
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 
+@runtime_checkable
 class <Name>(Protocol):
     """<One-line responsibility>.
 
@@ -97,29 +100,33 @@ class <Name>(Protocol):
     # ... other methods ...
 ```
 
-For a port living in a slice's `<slice>/domain/services.py`:
+For a port living in a module, append to `library/<module>/ports.py`:
 
 ```python
-# library/<slice>/domain/services.py
-from typing import Protocol
-from library.<slice>.domain.model import <DomainType>   # if needed
+from typing import Protocol, runtime_checkable
+
+from library.<module>.models import <DomainType>   # if needed
 
 
+@runtime_checkable
 class <Name>(Protocol):
     async def <method>(self, <arg>: <DomainType>) -> <return>: ...
 ```
 
 **Rules:**
 - `Protocol` from `typing` — never `ABC` (the project uses structural subtyping)
-- All methods `async` (this codebase is async everywhere)
+- `@runtime_checkable` so a test can do `isinstance(adapter, Port)` to verify conformance
+- Most methods `async` (this codebase is async everywhere — sync methods only for hashing/serialization)
 - Method signatures use **domain types**, not infrastructure types — no `dict`, no `JSON`, no SQL strings, no `Response` objects
 - Don't add a default impl — Protocol bodies are `...`
 
-### Step 5 — Generate the Adapter file
+### Step 5 — Generate the Adapter
+
+Add to the module's `repositories.py` (or `shared/adapters.py` for cross-cutting ports). Mirror the structure of an existing adapter in the same file.
 
 ```python
-# library/<location>/infrastructure/<adapter-name>.py
-from library.<location-of-port>.<application-or-domain>.<name> import <Port>
+# library/<location>/repositories.py  (or shared/adapters.py)
+from library.<location-of-port>.ports import <Port>
 # ... other imports ...
 
 
@@ -187,9 +194,9 @@ async def test_send_returns_none(notifier):
 
 This is **LSP enforcement** — every impl must obey the same observable contract.
 
-### Step 7 — Wire in composition root
+### Step 7 — Wire in composition root or module-local DI
 
-Edit [`library/shared/presentation/api/dependencies.py`](../../../library/shared/presentation/api/dependencies.py):
+If the port + impl are both inside a single module → wire in the module's `api/dependencies.py`. If the impl bridges modules (the asymmetric pattern) → wire in [`library/shared/api/dependencies.py`](../../../library/shared/api/dependencies.py) (composition root).
 
 ```python
 def get_<port-name>(

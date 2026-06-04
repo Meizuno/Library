@@ -81,12 +81,13 @@ Even if `/git-commit` already verified, the local commits may have come from a d
 
 ```sh
 pytest -W error
-pylint library tests
+ruff check library tests
+mypy library tests
 ```
 
-If either fails — **do not push**. Tell the human and stop. Pushing broken code wastes everyone's CI time and creates revert pressure.
+If any fails — **do not push**. Tell the human and stop. Pushing broken code wastes everyone's CI time and creates revert pressure.
 
-For a more thorough gate (slower), invoke [`/verify`](../verify/SKILL.md) for the full suite (pytest + pylint + codespell + bandit + pip-audit + pip-licenses).
+For a more thorough gate (slower), invoke [`/verify`](../verify/SKILL.md) for the full suite (pytest + ruff + mypy + codespell + pip-audit + pip-licenses).
 
 ### Step 3 — Pick the push command
 
@@ -254,7 +255,7 @@ fatal: no upstream configured for branch 'feat/check-due-loans'
 → No upstream. Show commits since branching from main, run verify, push with `-u`:
 
 ```sh
-pytest -W error && pylint library tests
+pytest -W error && ruff check library tests && mypy library tests
 git push -u origin feat/check-due-loans
 ```
 
@@ -269,7 +270,7 @@ $ git status --short --branch
 
 ```sh
 git log @{u}..HEAD --oneline
-pytest -W error && pylint library tests
+pytest -W error && ruff check library tests && mypy library tests
 git push
 ```
 
