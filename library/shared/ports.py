@@ -39,3 +39,21 @@ class Cache(Protocol):
     async def get(self, key: str) -> str | None: ...
     async def set(self, key: str, value: str) -> None: ...
     async def delete(self, key: str) -> None: ...
+
+
+class EventPublisher(Protocol):
+    """Port for publishing domain events to in-process subscribers.
+
+    Use cases depend on this narrow write-side interface; the registry of
+    handlers lives on the concrete bus (see
+    `library.shared.adapters.InProcessEventBus`) and is wired in the
+    composition root (`library.shared.api.main` lifespan).
+
+    Adapters are expected to dispatch synchronously and catch handler
+    exceptions so a failing subscriber does not roll back the publisher's
+    work. That's the EDA tradeoff: registration succeeds even if a
+    downstream side-effect (e.g. sending email) fails. A production
+    system would back this with an outbox + retry.
+    """
+
+    async def publish(self, event: object) -> None: ...

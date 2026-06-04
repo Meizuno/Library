@@ -45,6 +45,7 @@ from library.member.api.dependencies import (
     get_member_repo,
     get_verification_token_issuer,
 )
+from library.member.events import MemberRegistered
 from library.member.models import Email, Member
 from library.member.ports import MemberRepository, VerificationTokenIssuer
 from library.member.repositories import (
@@ -54,16 +55,19 @@ from library.member.repositories import (
 )
 from library.notification.models import Notification
 from library.notification.ports import Notifier
-from library.shared.adapters import metadata
+from library.notification.subscribers import (
+    SendVerificationEmailOnRegistration,
+)
+from library.shared.adapters import InProcessEventBus, metadata
 from library.shared.api.dependencies import (
     get_book_availability,
     get_clock,
     get_credential_verifier,
-    get_notifier,
+    get_event_publisher,
     get_password_hasher,
 )
 from library.shared.api.main import app
-from library.shared.ports import Clock, PasswordHasher
+from library.shared.ports import Clock, EventPublisher, PasswordHasher
 
 _TEST_SECRET = "test-secret-key-must-be-at-least-32-bytes-long"
 
@@ -232,6 +236,31 @@ def notifier() -> Notifier:
 
 
 @pytest.fixture
+def event_publisher(
+    notifier: Notifier,
+    verification_token_issuer: VerificationTokenIssuer,
+) -> EventPublisher:
+    """Real InProcessEventBus with the production subscriber wired.
+
+    Tests on the use-case layer build their own FakeEventPublisher (see
+    tests/member/use_cases/test_add_member.py); this fixture exists so
+    the FastAPI client fixture below can route registrations through
+    the actual subscriber and prove the email side-effect end-to-end —
+    without the EmailNotifier (FakeNotifier captures the .send call).
+    """
+    bus = InProcessEventBus()
+    bus.subscribe(
+        MemberRegistered,
+        SendVerificationEmailOnRegistration(
+            notifier=notifier,
+            verification_tokens=verification_token_issuer,
+            app_base_url="http://test",
+        ),
+    )
+    return bus
+
+
+@pytest.fixture
 def credential_verifier(
     member_repo: MemberRepository,
     password_hasher: PasswordHasher,
@@ -275,7 +304,7 @@ async def client(
     credential_verifier: CredentialVerifier,
     book_availability: BookAvailability,
     refresh_token_repo: RefreshTokenRepository,
-    notifier: Notifier,
+    event_publisher: EventPublisher,
     valid_member: Member,
 ) -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides[get_book_repo] = lambda: book_repo
@@ -294,7 +323,7 @@ async def client(
     app.dependency_overrides[get_refresh_token_repo] = (
         lambda: refresh_token_repo
     )
-    app.dependency_overrides[get_notifier] = lambda: notifier
+    app.dependency_overrides[get_event_publisher] = lambda: event_publisher
     # Default: auth-gated tests assume an authenticated caller. Individual
     # tests can clear this override to exercise the 401 path.
     app.dependency_overrides[get_current_member] = lambda: valid_member
