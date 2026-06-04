@@ -3,8 +3,9 @@ from typing import AsyncGenerator
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from library.loan.domain import Loan, LoanRepository
-from library.loan.infrastructure import SqlLoanRepository
+from library.loan.models import Loan
+from library.loan.ports import LoanRepository
+from library.loan.repositories import SqlLoanRepository
 from library.shared.infrastructure import metadata
 
 

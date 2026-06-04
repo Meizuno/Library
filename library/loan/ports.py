@@ -1,7 +1,7 @@
-from uuid import UUID
 from typing import Protocol
+from uuid import UUID
 
-from library.loan.domain.model import Loan
+from library.loan.models import Loan
 
 
 class LoanRepository(Protocol):

@@ -1,10 +1,52 @@
 from uuid import UUID
 
-from sqlalchemy import delete, insert, select, update as sql_update
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Table,
+    Uuid,
+    delete,
+    insert,
+    select,
+    update as sql_update,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from library.loan.domain import Loan, LoanNotFound
-from library.loan.infrastructure.sql_table import loans_table
+from library.loan.exceptions import LoanNotFound
+from library.loan.models import Loan
+from library.loan.ports import LoanRepository
+from library.shared.infrastructure.sql_metadata import metadata
+
+loans_table = Table(
+    "loans",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    # FK with ondelete="RESTRICT" prevents the database from removing
+    # a referenced book or member while loans still point at it.
+    # In normal app flow this never fires because books and members
+    # are soft-deleted (their rows stay physically present); the FK
+    # is the safety net for raw SQL, migrations, or buggy code paths
+    # that bypass the soft-delete logic.
+    Column(
+        "book_id",
+        Uuid,
+        ForeignKey("books.id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column(
+        "member_id",
+        Uuid,
+        ForeignKey("members.id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column("loaned_at", DateTime, nullable=False),
+    Column("due_at", DateTime, nullable=False),
+    Column("returned_at", DateTime, nullable=True),
+    Index("ix_loans_book_id", "book_id"),
+    Index("ix_loans_member_id", "member_id"),
+)
 
 
 class SqlLoanRepository:
@@ -83,3 +125,26 @@ class SqlLoanRepository:
         result = await self._session.execute(stmt)
         if result.rowcount == 0:
             raise LoanNotFound(f"Loan {loan_id} not found")
+
+
+class LoanBookAvailability:
+    """Implements `book.ports.BookAvailability` against the loan module.
+
+    A book is available iff there is no active (not-yet-returned) Loan
+    referencing it. The loan module owns this data (via
+    `LoanRepository.find_active_by_book`); `book.api` consumes the
+    boolean via the port.
+
+    Asymmetric cross-module dependency by design — same shape as
+    `MemberCredentialVerifier` implementing `auth.ports.CredentialVerifier`:
+    the port lives in the consumer's ports.py, the impl lives where the
+    data is. Structural typing matches the Protocol; the contract test
+    in `tests/loan/repositories/test_book_availability.py` verifies it
+    at runtime.
+    """
+
+    def __init__(self, loan_repo: LoanRepository):
+        self._loan_repo = loan_repo
+
+    async def is_available(self, book_id: UUID) -> bool:
+        return await self._loan_repo.find_active_by_book(book_id) is None

@@ -3,9 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from library.book.api.dependencies import get_book_repo
 from library.book.ports import BookRepository
-from library.loan.application import BorrowBookUseCase, ReturnBookUseCase
-from library.loan.domain import LoanRepository
-from library.loan.infrastructure import SqlLoanRepository
+from library.loan.ports import LoanRepository
+from library.loan.repositories import SqlLoanRepository
+from library.loan.use_cases.borrow_book import BorrowBookUseCase
+from library.loan.use_cases.return_book import ReturnBookUseCase
 from library.member.api.dependencies import get_member_repo
 from library.member.ports import MemberRepository
 from library.shared.application import Clock

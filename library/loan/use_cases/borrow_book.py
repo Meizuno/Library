@@ -1,12 +1,20 @@
+from dataclasses import dataclass
 from datetime import timedelta
+from uuid import UUID
 
 from library.book.exceptions import BookNotAvailable, BookNotFound
 from library.book.ports import BookRepository
-from library.loan.application.commands import BorrowBookCommand
-from library.loan.domain import Loan, LoanRepository
+from library.loan.models import Loan
+from library.loan.ports import LoanRepository
 from library.member.exceptions import MemberNotFound
 from library.member.ports import MemberRepository
 from library.shared.application import Clock
+
+
+@dataclass(frozen=True)
+class BorrowBookCommand:
+    book_id: UUID
+    member_id: UUID
 
 
 class BorrowBookUseCase:

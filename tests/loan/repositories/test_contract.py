@@ -4,8 +4,10 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from library.loan.domain import Loan, LoanNotFound, LoanRepository
-from library.loan.infrastructure import SqlLoanRepository
+from library.loan.exceptions import LoanNotFound
+from library.loan.models import Loan
+from library.loan.ports import LoanRepository
+from library.loan.repositories import SqlLoanRepository
 
 
 class TestProtocolSatisfaction:

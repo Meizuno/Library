@@ -4,8 +4,13 @@ from uuid import uuid4
 import pytest
 
 from library.book.models import Book
-from library.loan.application import ReturnBookCommand, ReturnBookUseCase
-from library.loan.domain import Loan, LoanNotFound, LoanRepository
+from library.loan.exceptions import LoanNotFound
+from library.loan.models import Loan
+from library.loan.ports import LoanRepository
+from library.loan.use_cases.return_book import (
+    ReturnBookCommand,
+    ReturnBookUseCase,
+)
 from library.shared.application import Clock
 
 

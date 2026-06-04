@@ -3,10 +3,14 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from library.loan.domain import Loan
+from library.loan.models import Loan
 
 
 class LoanResponse(BaseModel):
+    """Response shape shared across all loan routes. Per-route request
+    shapes (BorrowBookCreate) live with their route in api/routes/*.py.
+    """
+
     id: UUID
     book_id: UUID
     member_id: UUID
@@ -24,8 +28,3 @@ class LoanResponse(BaseModel):
             due_at=loan.due_at,
             returned_at=loan.returned_at,
         )
-
-
-class BorrowBookCreate(BaseModel):
-    book_id: UUID
-    member_id: UUID

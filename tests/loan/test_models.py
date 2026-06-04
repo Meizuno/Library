@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from library.loan.domain import Loan
+from library.loan.models import Loan
 
 
 @pytest.fixture
@@ -17,7 +17,7 @@ def due_at(loaned_at: datetime) -> datetime:
 
 
 @pytest.fixture
-def valid_loan(loaned_at: datetime, due_at: datetime) -> Loan:
+def loan_under_test(loaned_at: datetime, due_at: datetime) -> Loan:
     return Loan(
         book_id=uuid4(),
         member_id=uuid4(),
@@ -74,72 +74,72 @@ class TestLoanConstruction:
 
 class TestLoanReturn:
     def test_mark_returned_sets_timestamp(
-        self, valid_loan: Loan, due_at: datetime
+        self, loan_under_test: Loan, due_at: datetime
     ):
         returned_at = due_at + timedelta(hours=1)
-        valid_loan.mark_returned(returned_at)
-        assert valid_loan.returned_at == returned_at
-        assert valid_loan.is_returned
+        loan_under_test.mark_returned(returned_at)
+        assert loan_under_test.returned_at == returned_at
+        assert loan_under_test.is_returned
 
     def test_mark_returned_twice_raises(
-        self, valid_loan: Loan, due_at: datetime
+        self, loan_under_test: Loan, due_at: datetime
     ):
-        valid_loan.mark_returned(due_at)
+        loan_under_test.mark_returned(due_at)
         with pytest.raises(ValueError):
-            valid_loan.mark_returned(due_at + timedelta(hours=1))
+            loan_under_test.mark_returned(due_at + timedelta(hours=1))
 
     def test_mark_returned_before_loaned_raises(
-        self, valid_loan: Loan, loaned_at: datetime
+        self, loan_under_test: Loan, loaned_at: datetime
     ):
         with pytest.raises(ValueError):
-            valid_loan.mark_returned(loaned_at - timedelta(hours=1))
+            loan_under_test.mark_returned(loaned_at - timedelta(hours=1))
 
 
 class TestLoanOverdue:
     def test_not_overdue_when_now_before_due(
-        self, valid_loan: Loan, loaned_at: datetime
+        self, loan_under_test: Loan, loaned_at: datetime
     ):
         now = loaned_at + timedelta(days=1)
-        assert valid_loan.is_overdue(now) is False
+        assert loan_under_test.is_overdue(now) is False
 
     def test_overdue_when_now_after_due_and_not_returned(
-        self, valid_loan: Loan, due_at: datetime
+        self, loan_under_test: Loan, due_at: datetime
     ):
         now = due_at + timedelta(hours=1)
-        assert valid_loan.is_overdue(now) is True
+        assert loan_under_test.is_overdue(now) is True
 
     def test_not_overdue_when_returned(
-        self, valid_loan: Loan, due_at: datetime
+        self, loan_under_test: Loan, due_at: datetime
     ):
-        valid_loan.mark_returned(due_at)
+        loan_under_test.mark_returned(due_at)
         now = due_at + timedelta(days=30)
-        assert valid_loan.is_overdue(now) is False
+        assert loan_under_test.is_overdue(now) is False
 
     def test_not_overdue_at_exact_due_time(
-        self, valid_loan: Loan, due_at: datetime
+        self, loan_under_test: Loan, due_at: datetime
     ):
-        assert valid_loan.is_overdue(due_at) is False
+        assert loan_under_test.is_overdue(due_at) is False
 
 
 class TestLoanEquality:
-    def test_equal_by_id(self, valid_loan: Loan):
+    def test_equal_by_id(self, loan_under_test: Loan):
         other = Loan(
             book_id=uuid4(),
             member_id=uuid4(),
-            loaned_at=valid_loan.loaned_at,
-            due_at=valid_loan.due_at,
+            loaned_at=loan_under_test.loaned_at,
+            due_at=loan_under_test.due_at,
         )
-        other.id = valid_loan.id
-        assert valid_loan == other
+        other.id = loan_under_test.id
+        assert loan_under_test == other
 
-    def test_not_equal_if_different_id(self, valid_loan: Loan):
+    def test_not_equal_if_different_id(self, loan_under_test: Loan):
         other = Loan(
-            book_id=valid_loan.book_id,
-            member_id=valid_loan.member_id,
-            loaned_at=valid_loan.loaned_at,
-            due_at=valid_loan.due_at,
+            book_id=loan_under_test.book_id,
+            member_id=loan_under_test.member_id,
+            loaned_at=loan_under_test.loaned_at,
+            due_at=loan_under_test.due_at,
         )
-        assert valid_loan != other
+        assert loan_under_test != other
 
-    def test_hashable_by_id(self, valid_loan: Loan):
-        assert hash(valid_loan) == hash(valid_loan.id)
+    def test_hashable_by_id(self, loan_under_test: Loan):
+        assert hash(loan_under_test) == hash(loan_under_test.id)

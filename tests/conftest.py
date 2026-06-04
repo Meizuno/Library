@@ -38,9 +38,10 @@ from library.book.api.dependencies import get_book_repo
 from library.book.models import ISBN, Book
 from library.book.ports import BookAvailability, BookRepository
 from library.book.repositories import SqlBookRepository
-from library.loan.domain import Loan, LoanRepository
-from library.loan.infrastructure import LoanBookAvailability, SqlLoanRepository
-from library.loan.presentation.api.dependencies import get_loan_repo
+from library.loan.api.dependencies import get_loan_repo
+from library.loan.models import Loan
+from library.loan.ports import LoanRepository
+from library.loan.repositories import LoanBookAvailability, SqlLoanRepository
 from library.member.api.dependencies import (
     get_member_repo,
     get_verification_token_issuer,

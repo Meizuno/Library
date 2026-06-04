@@ -18,8 +18,8 @@ from library.book.exceptions import (
     BookNotAvailable,
     BookNotFound,
 )
-from library.loan.domain import LoanNotFound
-from library.loan.presentation.api.router import router as loan_router
+from library.loan.api import router as loan_router
+from library.loan.exceptions import LoanNotFound
 from library.member.api import router as member_router
 from library.member.exceptions import (
     InvalidVerificationToken,

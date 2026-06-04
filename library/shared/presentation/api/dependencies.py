@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from library.auth.domain import CredentialVerifier, TokenIssuer
 from library.auth.infrastructure import PyJWTTokenIssuer
 from library.book.ports import BookAvailability
-from library.loan.infrastructure import LoanBookAvailability, SqlLoanRepository
+from library.loan.repositories import LoanBookAvailability, SqlLoanRepository
 from library.member.repositories import (
     CachedMemberRepository,
     MemberCredentialVerifier,

@@ -1,5 +1,5 @@
-"""Contract tests for LoanBookAvailability — the loan-slice impl of
-`book.domain.BookAvailability`.
+"""Contract tests for LoanBookAvailability — the loan module's impl of
+`book.ports.BookAvailability`.
 
 The port's invariant: `is_available(book_id)` returns True iff there
 is no active (not-yet-returned) loan referencing the book.
@@ -8,8 +8,9 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 
 from library.book.ports import BookAvailability
-from library.loan.domain import Loan, LoanRepository
-from library.loan.infrastructure import LoanBookAvailability
+from library.loan.models import Loan
+from library.loan.ports import LoanRepository
+from library.loan.repositories import LoanBookAvailability
 
 
 class TestLoanBookAvailability:

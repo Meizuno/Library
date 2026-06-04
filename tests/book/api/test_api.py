@@ -3,7 +3,8 @@ from uuid import UUID, uuid4
 
 from httpx import AsyncClient
 
-from library.loan.domain import Loan, LoanRepository
+from library.loan.models import Loan
+from library.loan.ports import LoanRepository
 
 
 class TestBooksAPI:

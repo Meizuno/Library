@@ -1,6 +1,15 @@
-from library.loan.application.commands import ReturnBookCommand
-from library.loan.domain import Loan, LoanNotFound, LoanRepository
+from dataclasses import dataclass
+from uuid import UUID
+
+from library.loan.exceptions import LoanNotFound
+from library.loan.models import Loan
+from library.loan.ports import LoanRepository
 from library.shared.application import Clock
+
+
+@dataclass(frozen=True)
+class ReturnBookCommand:
+    loan_id: UUID
 
 
 class ReturnBookUseCase:

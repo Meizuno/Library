@@ -6,8 +6,11 @@ import pytest
 from library.book.exceptions import BookNotAvailable, BookNotFound
 from library.book.models import Book
 from library.book.ports import BookRepository
-from library.loan.application import BorrowBookCommand, BorrowBookUseCase
-from library.loan.domain import LoanRepository
+from library.loan.ports import LoanRepository
+from library.loan.use_cases.borrow_book import (
+    BorrowBookCommand,
+    BorrowBookUseCase,
+)
 from library.member.exceptions import MemberNotFound
 from library.member.models import Member
 from library.member.ports import MemberRepository
