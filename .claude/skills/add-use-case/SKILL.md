@@ -25,6 +25,7 @@ Before writing code, surface these decisions in **one short message**:
 - Which module owns this use case?
 - Does it mutate state (writes / raises domain exceptions) or read-only?
 - Does it cross modules? Which ports does it need?
+- **Does it emit a domain event?** If the use case completes a meaningful state transition that another module might react to (registration, borrow, return, login), publish via `EventPublisher` instead of calling a side-effect port directly. The use case stays thin; subscribers (in the consumer module's `subscribers.py`) own the reaction. See the "Event-driven side-effects" section of [AGENTS.md](../../../AGENTS.md) and the reference: [`AddMemberUseCase`](../../../library/member/use_cases/add_member.py) → [`SendVerificationEmailOnRegistration`](../../../library/notification/subscribers.py).
 - Authentication required (Bearer + verified)? `/auth` routes are public; `/loans` is auth-gated via `get_verified_member` on the aggregator router.
 
 Wait for confirmation. **Do not assume.**
@@ -66,7 +67,7 @@ class <Verb><Noun>UseCase:
         # 2. Validate / check invariants → raise domain/application exceptions
         # 3. Mutate / compute (pure)
         # 4. Persist (create vs update — explicit)
-        # 5. Side-effects (Notifier, Logger)
+        # 5. Publish domain event (if meaningful transition) + other side-effects (Logger)
         # 6. Return
         ...
 ```
@@ -93,7 +94,7 @@ def get_<verb>_<noun>_use_case(
     return <Verb><Noun>UseCase(<entity>_repo, clock)
 ```
 
-`get_clock` / `get_password_hasher` / `get_session` / `get_cache` come from `library.shared.api.dependencies`. Cross-module ports (e.g., `Notifier`, `VerificationTokenIssuer`) come from their owner module's `api/dependencies.py`. The shared composition root is only for cross-module port BRIDGES (`get_credential_verifier`, `get_book_availability`).
+Cross-cutting ports come from `library.shared.api.dependencies`: `get_clock`, `get_password_hasher`, `get_session`, `get_cache`, `get_event_publisher`. Module-owned ports (e.g., `VerificationTokenIssuer` from `member/`) come from that owner module's `api/dependencies.py`. The shared composition root is only for cross-module port BRIDGES (`get_credential_verifier`, `get_book_availability`).
 
 ### Step 4 — Add HTTP route (if exposed via API)
 
@@ -198,7 +199,7 @@ Run [`/verify`](../verify/SKILL.md). All six steps (pytest, ruff, mypy, codespel
 
 ## Reference: shape of a complete use case
 
-[`AddMemberUseCase`](../../../library/member/use_cases/add_member.py) is the canonical example — it touches multiple ports (`MemberRepository`, `PasswordHasher`, `VerificationTokenIssuer`, `Notifier`, plus the app's base URL), validates duplicates, persists, sends welcome email. Read it and mirror.
+[`AddMemberUseCase`](../../../library/member/use_cases/add_member.py) is the canonical example — depends on `MemberRepository`, `PasswordHasher`, and `EventPublisher`; validates duplicates, persists, then publishes `MemberRegistered`. The welcome-email side-effect lives in [`SendVerificationEmailOnRegistration`](../../../library/notification/subscribers.py), NOT in the use case — the use case stays free of email/token concerns. Read both and mirror when your use case has its own meaningful state transition.
 
 ## Do not
 
