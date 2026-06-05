@@ -194,16 +194,9 @@ All three must pass. If any fails, **do not commit** — fix the failure first. 
 
 ### Step 7 — Compose the message and commit
 
-**Default: commit directly.** Write the message per Steps 2-5, run `git commit` with a heredoc, move on. The laconic body discipline from Step 4 keeps the message short enough that a round-trip review is rarely worth the friction.
+`/git-commit` invocation IS the human's acceptance — don't ask them to confirm the message before committing. Compose it per Steps 2-5, run `git commit` with a heredoc, surface the SHA after (Step 9). This holds regardless of diff size, breaking-change marker (`!`), or `revert:` type — the human gated the commit at the skill invocation; the message wording is the AI's responsibility.
 
-**Show the message first and wait for confirmation only when:**
-
-- The diff touches **≥10 files** — a human sanity-check on framing is cheap insurance at that size
-- The subject carries a **`!`** breaking-change marker — the human should explicitly approve the breaking-change framing
-- The commit is a **`revert:`** — confirm the human agrees about what's being reverted
-- The human explicitly asked: "draft the message", "show me first", "review the message"
-
-Otherwise, just commit. Surface what changed and the SHA after the fact (Step 9), not before.
+If the human wants to preview wording first, they can ask for a draft **without invoking the skill** — e.g. "draft a commit message for this", "what would you write?". `/git-commit` itself is always direct.
 
 Use a heredoc to pass multiline messages safely:
 
