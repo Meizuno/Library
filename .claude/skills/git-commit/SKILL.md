@@ -122,21 +122,30 @@ Rules (non-negotiable):
 | `chore: stuff` | `chore(deps): bump pydantic to 2.13.4` |
 | `feat(loan): Added the ability to return books.` | `feat(loan): add return-book use case` |
 
-### Step 4 — Write `<body>` (optional but encouraged for non-trivial)
+### Step 4 — Write `<body>` (optional, keep it laconic)
 
-When to include a body:
-- ✅ Bug fix → explain root cause and **why** the fix works
-- ✅ Refactor → explain motivation (Fragile Base Class? Premature abstraction? SRP violation?)
-- ✅ Architectural decision → record the **why** for future readers
-- ❌ Trivial cosmetic change → subject is enough
-- ❌ Just "I added a thing" → subject is enough
+Body covers the *why*; the diff shows *what*. **Default ceiling: 6 lines.** A commit that genuinely needs more is usually a commit that should be split.
 
 Rules:
 
 - **Blank line between subject and body**
 - **Wrap lines at 72 characters**
 - **Explain WHY, not WHAT** — the diff already shows what
-- **Past tense or descriptive** in body is OK ("This was previously..." / "The change removes...")
+- **One short paragraph or 2-3 bullets** — not a per-file change list, not a restating of the subject, not a long preamble
+
+Earns body lines: bug root cause, non-obvious tradeoff, architectural rationale, breaking-change explanation, why the chosen approach beat the obvious alternative.
+
+Does NOT earn body lines: a bullet per file (the diff shows files), "this commit does X" (subject already said that), per-section breakdowns of mechanical edits, narrating what the next session might think.
+
+| ❌ Too long | ✅ Laconic |
+|---|---|
+| 30-line bullet list per file touched | 4-line paragraph: why + key tradeoff |
+| "This commit adds X. X does Y. The motivation is Z…" | "Add X — needed for Y because Z" |
+| Restating the subject in the first body line | Skip; jump to the why |
+
+If you genuinely have multiple independent points (rare), 2-3 short groupings are fine. If you're past ~10 lines, ask whether the commit should be split (see "Atomic commits" below).
+
+**When to skip the body entirely:** trivial deps bumps, mechanical renames, self-explanatory docs fixes, format-only chores. Subject alone is enough.
 
 ### Step 5 — Footers
 
@@ -183,9 +192,18 @@ All three must pass. If any fails, **do not commit** — fix the failure first. 
 
 (For a slower task with more time, run the full `/verify` skill: pytest + ruff + mypy + codespell + pip-audit + pip-licenses.)
 
-### Step 7 — Propose the message, then commit
+### Step 7 — Compose the message and commit
 
-Before running `git commit`, **show the human the proposed message** and wait for confirmation **unless** the human said "commit it" / "auto-commit" / similar — then proceed.
+**Default: commit directly.** Write the message per Steps 2-5, run `git commit` with a heredoc, move on. The laconic body discipline from Step 4 keeps the message short enough that a round-trip review is rarely worth the friction.
+
+**Show the message first and wait for confirmation only when:**
+
+- The diff touches **≥10 files** — a human sanity-check on framing is cheap insurance at that size
+- The subject carries a **`!`** breaking-change marker — the human should explicitly approve the breaking-change framing
+- The commit is a **`revert:`** — confirm the human agrees about what's being reverted
+- The human explicitly asked: "draft the message", "show me first", "review the message"
+
+Otherwise, just commit. Surface what changed and the SHA after the fact (Step 9), not before.
 
 Use a heredoc to pass multiline messages safely:
 
