@@ -52,13 +52,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     async with app.state.engine.begin() as conn:
         await conn.run_sync(metadata.create_all)
 
-    # --- Composition root: event bus + subscribers ------------------
-    # The bus is constructed once and stashed on app.state for
-    # request-scoped DI to read. Subscribers depend on stateless
-    # singletons (EmailNotifier, PyJWTVerificationTokenIssuer) so it's
-    # safe to build them here at startup; per-request providers in
-    # member/api/dependencies.py keep VerificationTokenIssuer wired for
-    # the verify flow.
+    # --- Composition root: lifespan singletons + event bus ----------
+    # Stateless adapters that more than one site needs (the event-bus
+    # subscriber AND per-request DI for the verify flow) are
+    # constructed once here and stashed on `app.state`. Per-request
+    # providers in `<module>/api/dependencies.py` read them back via
+    # the request handle — single source of truth, no drift risk if
+    # config grows.
+    verification_tokens = PyJWTVerificationTokenIssuer(
+        secret_key=settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+        ttl_hours=settings.verification_token_ttl_hours,
+    )
+    app.state.verification_tokens = verification_tokens
+
     event_bus = InProcessEventBus()
     event_bus.subscribe(
         MemberRegistered,
@@ -71,11 +78,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 password=settings.smtp_password,
                 use_tls=settings.smtp_use_tls,
             ),
-            verification_tokens=PyJWTVerificationTokenIssuer(
-                secret_key=settings.jwt_secret_key,
-                algorithm=settings.jwt_algorithm,
-                ttl_hours=settings.verification_token_ttl_hours,
-            ),
+            verification_tokens=verification_tokens,
             app_base_url=settings.app_base_url,
         ),
     )
