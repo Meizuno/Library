@@ -57,3 +57,21 @@ class EventPublisher(Protocol):
     """
 
     async def publish(self, event: object) -> None: ...
+
+
+class EventHandler[T](Protocol):
+    """Port for reacting to a domain event of type `T`.
+
+    Named-method (`handle`) rather than `__call__` to match every other
+    port in this codebase (`Notifier.send`, `Clock.now`, `Cache.get`,
+    repository methods, use cases' `execute`). Subscribers register
+    with `InProcessEventBus.subscribe(EventType, handler)` and the bus
+    dispatches by calling `handler.handle(event)`.
+
+    Handlers are expected to swallow their own retryable failures
+    where appropriate (the bus already catches + logs uncaught
+    exceptions so one failing handler does not affect the publisher or
+    other subscribers).
+    """
+
+    async def handle(self, event: T) -> None: ...

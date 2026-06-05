@@ -46,7 +46,7 @@ class SendVerificationEmailOnRegistration:
         self._verification_tokens = verification_tokens
         self._app_base_url = app_base_url.rstrip("/")
 
-    async def __call__(self, event: MemberRegistered) -> None:
+    async def handle(self, event: MemberRegistered) -> None:
         token = self._verification_tokens.issue(event.member_id)
         link = f"{self._app_base_url}/members/verify?token={token}"
         await self._notifier.send(
