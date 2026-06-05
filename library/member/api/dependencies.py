@@ -1,10 +1,11 @@
-from fastapi import Depends
+from typing import cast
+
+from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from library.member.ports import MemberRepository, VerificationTokenIssuer
 from library.member.repositories import (
     CachedMemberRepository,
-    PyJWTVerificationTokenIssuer,
     SqlMemberRepository,
 )
 from library.member.use_cases.add_member import AddMemberUseCase
@@ -17,9 +18,7 @@ from library.shared.api.dependencies import (
     get_event_publisher,
     get_password_hasher,
     get_session,
-    get_settings,
 )
-from library.shared.config import Settings
 from library.shared.ports import Cache, EventPublisher, PasswordHasher
 
 
@@ -31,12 +30,16 @@ def get_member_repo(
 
 
 def get_verification_token_issuer(
-    settings: Settings = Depends(get_settings),
+    request: Request,
 ) -> VerificationTokenIssuer:
-    return PyJWTVerificationTokenIssuer(
-        secret_key=settings.jwt_secret_key,
-        algorithm=settings.jwt_algorithm,
-        ttl_hours=settings.verification_token_ttl_hours,
+    """Resolve the application-scoped verification-token issuer stashed
+    on `app.state` during lifespan startup. Same instance is bound to
+    the MemberRegistered subscriber, so the verify flow and the
+    welcome-email link agree on JWT config without a second
+    construction site.
+    """
+    return cast(
+        VerificationTokenIssuer, request.app.state.verification_tokens
     )
 
 
