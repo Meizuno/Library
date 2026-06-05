@@ -24,7 +24,7 @@ class TestSendVerificationEmailOnRegistration:
             member_id=uuid4(), name="Name", email="user@example.com"
         )
 
-        await subscriber(event)
+        await subscriber.handle(event)
 
         assert len(notifier.sent) == 1
         sent = notifier.sent[0]
@@ -46,7 +46,7 @@ class TestSendVerificationEmailOnRegistration:
             member_id=member_id, name="Name", email="user@example.com"
         )
 
-        await subscriber(event)
+        await subscriber.handle(event)
 
         body = notifier.sent[0].notification.body
         # The body contains a clickable verification URL of the form
@@ -74,7 +74,7 @@ class TestSendVerificationEmailOnRegistration:
             member_id=uuid4(), name="Name", email="user@example.com"
         )
 
-        await subscriber(event)
+        await subscriber.handle(event)
 
         body = notifier.sent[0].notification.body
         assert "http://localhost:8000/members/verify?token=" in body

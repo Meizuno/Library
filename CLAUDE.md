@@ -10,7 +10,7 @@ For setup, motivation, and detailed architectural rationale, see **[README.md](R
 
 ## Quick orientation
 
-This is a Python 3.12+ async backend (FastAPI + SQLAlchemy 2.x Core + Postgres + Redis), structured as a **modular monolith** with **flat per-module layout** (`book/`, `member/`, `loan/`, `auth/`, `notification/`, `shared/`). Each module's dependency rule is encoded by file (`models.py` → `ports.py` → `repositories.py` / `use_cases/` / `api/`), not by directory. 402 tests guard every architectural claim.
+This is a Python 3.12+ async backend (FastAPI + SQLAlchemy 2.x Core + Postgres + Redis), structured as a **modular monolith** with **flat per-module layout** (`book/`, `member/`, `loan/`, `auth/`, `notification/`, `shared/`). Each module's dependency rule is encoded by file (`models.py` → `ports.py` → `repositories.py` / `use_cases/` / `api/`), not by directory. Side-effects on domain transitions go through an in-process event bus ([`EventPublisher`](library/shared/ports.py) → [`InProcessEventBus`](library/shared/adapters.py) → `<consumer>/subscribers.py`), not direct calls. 415 tests guard every architectural claim.
 
 Before touching code:
 

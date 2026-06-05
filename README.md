@@ -62,9 +62,11 @@ place that knows about HTTP.
 - [`loan/`](library/loan/) imports `BookRepository`, `MemberRepository`, and a few
   exceptions from `book/` and `member/`, because borrowing a book genuinely spans
   three aggregates. `book/` and `member/` do not know about `loan/`.
-- [`member/`](library/member/) imports the `Notifier` port + `Notification` value
-  object from [`notification/`](library/notification/) to send the welcome email
-  on registration.
+- [`notification/`](library/notification/) imports `MemberRegistered` from
+  [`member/events.py`](library/member/events.py) so its subscriber can send
+  the welcome+verification email on registration. The consumer-depends-on-
+  producer reverse-dep is the standard EDA shape — the use case publishes
+  an event and never knows that email is involved.
 - [`auth/`](library/auth/) defines a `CredentialVerifier` port; the implementation
   ([`MemberCredentialVerifier`](library/member/repositories.py))
   lives in `member/infrastructure/`. Only the impl direction crosses the slice
@@ -112,6 +114,7 @@ library/
 │   ├── ports.py                   # MemberRepository + VerificationTokenIssuer
 │   ├── exceptions.py              # MemberNotFound + MemberAlreadyExists + MemberNotVerified
 │   │                              #   + InvalidVerificationToken
+│   ├── events.py                  # MemberRegistered (frozen domain event)
 │   ├── repositories.py            # members_table + Sql + Cached repos,
 │   │                              #   plus MemberCredentialVerifier (auth port impl)
 │   │                              #   and PyJWTVerificationTokenIssuer
@@ -139,20 +142,26 @@ library/
 │       ├── schemas.py             # TokenResponse
 │       └── routes/                # login + refresh + logout
 │
-├── notification/                  # Module: outbound notifications (minimal — no use cases)
+├── notification/                  # Module: outbound notifications (no use cases)
 │   ├── models.py                  # Notification (subject + body)
 │   ├── ports.py                   # Notifier (Protocol)
-│   └── email_notifier.py          # EmailNotifier (aiosmtplib; log-only in dev)
+│   ├── email_notifier.py          # EmailNotifier (aiosmtplib; log-only in dev)
+│   └── subscribers.py             # SendVerificationEmailOnRegistration —
+│                                  #   reacts to MemberRegistered, issues
+│                                  #   its own token, calls Notifier.send
 │
 └── shared/                        # Cross-cutting code
     ├── config.py                  # Pydantic Settings (fail-fast on missing env)
     ├── logging_config.py          # structlog + stdlib bridge
-    ├── ports.py                   # Clock + PasswordHasher + Logger + Cache (all Protocols)
+    ├── ports.py                   # Clock + PasswordHasher + Logger + Cache
+    │                              #   + EventPublisher + EventHandler[T] (all Protocols)
     ├── exceptions.py              # DomainError + ApplicationError (base classes)
     ├── adapters.py                # SystemClock + Argon2PasswordHasher + get_logger
-    │                              #   + metadata (shared MetaData) + RedisCache + InMemoryCache
+    │                              #   + metadata (shared MetaData) + RedisCache
+    │                              #   + InMemoryCache + InProcessEventBus
     └── api/
-        ├── main.py                # FastAPI app, lifespan, exception handlers
+        ├── main.py                # FastAPI app + lifespan (wires event bus +
+        │                          #   subscribers as singletons) + exception handlers
         ├── dependencies.py        # composition root for cross-module port wiring
         └── middleware.py          # request_logging_middleware (structlog)
 
@@ -164,8 +173,8 @@ tests/                             # Mirrors the source structure
 ├── member/{…}
 ├── loan/{…}
 ├── auth/{…}
-├── notification/{test_models.py, test_email_notifier.py}
-└── shared/{test_*.py — config, clock, argon2_hasher, structlog_logger, in_memory_cache}
+├── notification/{test_models.py, test_email_notifier.py, test_subscribers.py}
+└── shared/{test_*.py — config, clock, argon2_hasher, structlog_logger, in_memory_cache, event_bus}
 ```
 
 Browse the source: [`library/`](library/) · [`tests/`](tests/).
@@ -340,9 +349,14 @@ POST /members                            # register
   → AddMemberUseCase
       • Argon2-hash password
       • member_repo.create(member, is_verified=False)
-      • issue verification token (purpose=verify_email, 24h TTL)
-      • Notifier.send: "open {app_base_url}/members/verify?token=…"
+      • event_publisher.publish(MemberRegistered(id, name, email))
   ← 201 {id, name, email, is_verified=false}
+
+   ↳ SendVerificationEmailOnRegistration  (subscriber, fires on bus dispatch)
+       • issue verification token (purpose=verify_email, 24h TTL)
+       • Notifier.send: "open {app_base_url}/members/verify?token=…"
+       (handler failures are logged, NOT propagated — registration succeeds
+        even if SMTP is down)
 
 POST /members/verify {token}             # confirm email (idempotent)
   → VerifyMemberUseCase
@@ -788,11 +802,19 @@ These were considered and intentionally left out:
 - **CQRS** — read and write models are the same. No projection layer.
 - **Event sourcing** — state is the current value of fields, not a log of
   events.
-- **Domain event bus** — `AddMemberUseCase` calls `Notifier.send` directly
-  rather than publishing a `MemberRegistered` event. With exactly one
-  subscriber (the welcome email), an event bus would be ceremony without
-  decoupling. The trigger to extract is "second subscriber" — then it earns
-  the abstraction.
+- **Outbox pattern / persistent events** — the bus
+  ([`InProcessEventBus`](library/shared/adapters.py)) dispatches events
+  synchronously and forgets. Handler exceptions are caught and logged via
+  `logger.exception("event_handler_failed", …)`; nothing is retried. If
+  SMTP is down when a member registers, the welcome email is silently
+  dropped. That's the deliberate study-grade shape — production systems
+  would persist events in the same SQL transaction as the command and
+  let a worker drain them with retries.
+- **Async / fire-and-forget event dispatch** — handlers are awaited
+  inside the publishing coroutine. `asyncio.create_task(handler(event))`
+  would defer side-effects off the request path but force tests to await
+  on observable effects (log lines, notifier captures) instead of the
+  bus return — racier and harder to assert against.
 - **Authorization roles / RBAC** — there is authentication (who are you) and
   one verified-email gate, but no concept of admin vs. member roles. Adding
   it would be a new dependency composed on top of `get_current_member` in the

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Mandatory rules for AI agents working in this repository. These rules are enforced by 402 tests, `ruff check library tests` (clean), and `mypy library tests` (clean). Violations break the build.
+Mandatory rules for AI agents working in this repository. These rules are enforced by 415 tests, `ruff check library tests` (clean), and `mypy library tests` (clean). Violations break the build.
 
 For setup, motivation, and detailed architecture rationale, see [README.md](README.md).
 
@@ -15,7 +15,9 @@ Python 3.12+ async backend, FastAPI driver, SQLAlchemy 2.x Core, Postgres + Redi
 ├── models.py        ── entities + value objects (framework-free)
 ├── ports.py         ── all Protocols owned by this module (framework-free)
 ├── exceptions.py    ── domain + application exceptions (DomainError / ApplicationError split)
+├── events.py        ── frozen domain events emitted by this module (optional — only if it publishes)
 ├── repositories.py  ── all port impls + the module's SQLAlchemy Table definition
+├── subscribers.py   ── EventHandler classes reacting to other modules' events (optional — only if it subscribes)
 ├── use_cases/       ── one file per use case; Command DTO + UseCase class together
 └── api/             ── FastAPI router(s), DI providers, request/response schemas
 ```
@@ -30,20 +32,22 @@ Python 3.12+ async backend, FastAPI driver, SQLAlchemy 2.x Core, Postgres + Redi
 
 Inside a module:
 - `models.py` imports **nothing** else from the module (only stdlib/typing).
+- `events.py` (when present) imports only stdlib/typing + optionally `models.py` (events may embed VOs).
 - `ports.py` imports **only** `models.py`.
 - `exceptions.py` imports only `library.shared.exceptions`.
 - `repositories.py` imports `ports.py` + `models.py` + `exceptions.py` (+ `shared.adapters` for `metadata`, `shared.ports.Cache`, etc.). Only the composition root imports FROM `repositories.py`.
-- `use_cases/*.py` import `ports.py`, `models.py`, `exceptions.py` (+ shared ports). They **never** import `repositories.py` or `api/`.
+- `subscribers.py` (when present) imports another module's `events.py` + this module's `ports.py` + cross-cutting ports (`Notifier`, `Logger`). It never imports `repositories.py`.
+- `use_cases/*.py` import `ports.py`, `models.py`, `exceptions.py`, this module's `events.py` (when publishing) + shared ports. They **never** import `repositories.py` or `api/`.
 - `api/*` orchestrates: imports use cases + its own schemas. `api/` is the only place that knows about HTTP.
 
 The domain (`models.py`, `ports.py`) stays **framework-free**: no Pydantic, no SQLAlchemy, no FastAPI imports.
 
 Cross-module imports are **one-way and explicit**:
 - `loan/` imports `BookRepository` + book exceptions from `book/`, and `MemberRepository` + member exceptions from `member/`.
-- `member/use_cases/add_member.py` uses `Notifier` + `Notification` from `notification/`.
+- `notification/subscribers.py` imports `MemberRegistered` from `member/events.py` — consumer naturally depends on producer's event schema. Use cases never import `Notifier` directly; the bus is the seam.
 - `auth/ports.py` defines `CredentialVerifier`; the impl `MemberCredentialVerifier` lives in `member/repositories.py` (asymmetric — port in consumer, impl with the data).
 - `book/` and `member/` know **nothing** about `loan/`.
-- The composition root in [`library/shared/api/dependencies.py`](library/shared/api/dependencies.py) is the **only** place that imports concretes across modules. It bridges `auth.ports.CredentialVerifier` → `member.repositories.MemberCredentialVerifier` and `book.ports.BookAvailability` → `loan.repositories.LoanBookAvailability`.
+- The composition root in [`library/shared/api/dependencies.py`](library/shared/api/dependencies.py) is the **only** place that imports concretes across modules. It bridges `auth.ports.CredentialVerifier` → `member.repositories.MemberCredentialVerifier` and `book.ports.BookAvailability` → `loan.repositories.LoanBookAvailability`. The event bus + its subscribers are wired in [`library/shared/api/main.py`](library/shared/api/main.py)'s lifespan (the only other composition site).
 
 **Hard forbidden:**
 - ❌ Importing `repositories.py` from `models.py`, `ports.py`, or `use_cases/`
@@ -143,7 +147,17 @@ Cross-module imports are **one-way and explicit**:
 
 - [`Notifier`](library/notification/ports.py) sends a [`Notification`](library/notification/models.py) VO (`subject`, `body`) — **not** an "email service"
 - Channel (email / SMS / push) is the impl's concern
-- Use case never knows what channel is used
+- **Consumed by subscribers, not use cases.** `AddMemberUseCase` publishes a `MemberRegistered` event; [`SendVerificationEmailOnRegistration`](library/notification/subscribers.py) reacts and calls `Notifier.send`. Use cases never know what channel — or whether a notification fires at all
+
+### Event-driven side-effects (in-process bus)
+
+- [`EventPublisher`](library/shared/ports.py) — narrow publish-only port consumed by use cases: `async def publish(self, event: object) -> None`
+- [`EventHandler[T]`](library/shared/ports.py) — Protocol implemented by subscribers: `async def handle(self, event: T) -> None`. Named-method (`handle`), not `__call__` — matches every other port's shape
+- [`InProcessEventBus`](library/shared/adapters.py) — concrete adapter. Singleton wired in `main.py`'s lifespan; `subscribe(EventType, handler)` registers, `publish(event)` dispatches by `type(event)` lookup
+- Dispatch is **synchronous** (handlers awaited in the publishing coroutine) and **isolating** (each `handle` call is wrapped in try/except + `logger.exception("event_handler_failed", ...)`) — one handler's failure does not affect the publisher or other subscribers
+- Events live in the **producer** module's `events.py` as frozen dataclasses carrying only facts (e.g. `MemberRegistered(member_id, name, email)`) — no email-shaped or persistence-shaped fields
+- Subscribers live in the **consumer** module's `subscribers.py` and own their own dependencies (a subscriber that needs a token issues its own, doesn't expect it in the event payload)
+- The publisher's command is **not rolled back** if a handler fails. That's the EDA tradeoff and is the reason outbox / async dispatch are deliberately out of scope (see "What this project deliberately does NOT do")
 
 ### Decorator pattern for caching
 
@@ -268,7 +282,8 @@ Or just invoke [`/verify`](.claude/skills/verify/SKILL.md) — it runs the same 
 
 If an agent is tempted to add any of the following, **stop and confirm with the human first**:
 
-- ❌ **Domain Event Bus** — direct calls (`Notifier.send`) are correct until there are two subscribers
+- ❌ **Outbox pattern / persistent events** — [`InProcessEventBus`](library/shared/adapters.py) dispatches synchronously and forgets. If SMTP is down when a member registers, the welcome email is silently logged-and-dropped. Production-grade durability (events persisted in the same transaction, retried by a worker) is deliberately omitted — it's the documented upgrade path
+- ❌ **Async / fire-and-forget event dispatch** — handlers are awaited inside the publishing coroutine for deterministic tests. `asyncio.create_task` would mask races and force tests onto log/notifier polling
 - ❌ **CQRS / Event Sourcing** — read/write models are the same; no event log
 - ❌ **Generic `BaseEntity`** — each entity defines its own `__eq__` / `__hash__`
 - ❌ **Unit of Work** — session-per-request via FastAPI DI already carries transactional consistency; UoW was added and removed

@@ -8,7 +8,6 @@ impl, etc.). Cache has two impls (Redis + in-memory) but they're tiny
 and pair naturally with the Cache Protocol they implement.
 """
 from collections import OrderedDict
-from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Any, cast
 
@@ -19,7 +18,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 from sqlalchemy import MetaData
 
-from library.shared.ports import Logger
+from library.shared.ports import EventHandler, Logger
 
 # --- Shared SQLAlchemy metadata --------------------------------------------
 # Every feature's repositories.py registers its Table against this single
@@ -163,14 +162,12 @@ class InProcessEventBus:
     """
 
     def __init__(self) -> None:
-        self._handlers: dict[
-            type, list[Callable[[Any], Awaitable[None]]]
-        ] = {}
+        self._handlers: dict[type, list[EventHandler[Any]]] = {}
 
     def subscribe[T](
         self,
         event_type: type[T],
-        handler: Callable[[T], Awaitable[None]],
+        handler: EventHandler[T],
     ) -> None:
         # The dict is heterogeneous (one entry per event type), so we
         # store handlers under their concrete type and cast away the
@@ -178,16 +175,16 @@ class InProcessEventBus:
         # `type(event)` to find the matching slot, so the runtime types
         # always line up with what was registered here.
         self._handlers.setdefault(event_type, []).append(
-            cast(Callable[[Any], Awaitable[None]], handler)
+            cast(EventHandler[Any], handler)
         )
 
     async def publish(self, event: object) -> None:
         for handler in self._handlers.get(type(event), []):
             try:
-                await handler(event)
+                await handler.handle(event)
             except Exception:
                 _event_bus_logger.exception(
                     "event_handler_failed",
                     event_type=type(event).__name__,
-                    handler=getattr(handler, "__qualname__", repr(handler)),
+                    handler=type(handler).__qualname__,
                 )
